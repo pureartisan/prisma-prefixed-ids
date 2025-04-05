@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
 // Define ModelName type based on Prisma's model names
@@ -79,9 +79,13 @@ export function createPrefixedIdsExtension<ModelName extends string>(
   };
 }
 
-export function extendPrismaClient<ModelName extends string = string>(
-  prisma: PrismaClient,
-  config: PrefixConfig<ModelName>,
-): PrismaClient {
+export function extendPrismaClient<
+  ModelName extends string = string,
+  Client extends {
+    $extends: (extension: any) => Client;
+  } = PrismaClient & {
+    $extends: (extension: any) => any;
+  },
+>(prisma: Client, config: PrefixConfig<ModelName>): Client {
   return prisma.$extends(createPrefixedIdsExtension(config));
 }

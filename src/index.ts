@@ -5,12 +5,15 @@ import { customAlphabet } from "nanoid";
 type ModelName = string;
 
 export type PrefixConfig<ModelName extends string> = {
-  prefixes: Record<ModelName, string>;
+  prefixes: Partial<Record<ModelName, string>>;
   idGenerator?: (prefix: string) => string;
 };
 
 const defaultIdGenerator = (prefix: string): string => {
-  const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 24);
+  const nanoid = customAlphabet(
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    24,
+  );
   return `${prefix}_${nanoid()}`;
 };
 
@@ -35,7 +38,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 
   const prefixedId = (modelName: ModelName): string | null => {
     if (modelName in prefixes) {
-      return idGenerator(prefixes[modelName]);
+      return idGenerator(prefixes[modelName] as string);
     }
     return null;
   };

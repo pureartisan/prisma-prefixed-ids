@@ -1,0 +1,33 @@
+{
+  "name": "prisma-prefixed-ids",
+  "version": "1.0.0",
+  "description": "A Prisma extension that adds prefixed IDs to your models",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "prisma",
+    "extension",
+    "ids",
+    "prefixed",
+    "nanoid"
+  ],
+  "author": "Prageeth Silva <prageeth@codemode.com.au>",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.0.0",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/nanoid": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^5.0.0"
+  }
+}

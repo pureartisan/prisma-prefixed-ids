@@ -1,6 +1,30 @@
 # Prisma Prefixed IDs
 
+[![npm version](https://img.shields.io/npm/v/prisma-prefixed-ids.svg)](https://www.npmjs.com/package/prisma-prefixed-ids)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/pureartisan/prisma-prefixed-ids/actions/workflows/ci.yml/badge.svg)](https://github.com/pureartisan/prisma-prefixed-ids/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/pureartisan/prisma-prefixed-ids/branch/main/graph/badge.svg)](https://codecov.io/gh/pureartisan/prisma-prefixed-ids)
+
 A Prisma extension that automatically adds prefixed IDs to your models. This package allows you to configure custom prefixes for your models and even customize how the IDs are generated.
+
+## Why nanoid instead of UUID v4?
+
+This package uses [nanoid](https://github.com/ai/nanoid) for ID generation instead of UUID v4 for several reasons:
+
+1. **Better Collision Resistance**: While UUID v4 has a 122-bit random component, nanoid with 24 characters (using 36 possible characters) provides approximately 128 bits of entropy, making it even more collision-resistant than UUID v4.
+
+2. **Smaller Size**: A UUID v4 is 36 characters long (including hyphens), while a nanoid with 24 characters is more compact. When combined with a prefix (e.g., `usr_`), the total length is still shorter than a UUID v4.
+
+3. **URL-Safe**: nanoid uses URL-safe characters by default, making it suitable for use in URLs without encoding.
+
+4. **Customizable**: nanoid allows you to customize the alphabet and length, giving you more control over the ID format.
+
+5. **Better Performance**: nanoid is optimized for performance and generates IDs faster than UUID v4.
+
+For example, with a 24-character nanoid:
+- The chance of a collision is approximately 1 in 2^128 (same as UUID v4)
+- The ID length is 24 characters + prefix length (e.g., `usr_abc123...`)
+- The alphabet includes 36 characters (0-9, a-z), making it both readable and compact
 
 ## Installation
 

@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pureartisan/prisma-prefixed-ids"
+  },
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
@@ -24,7 +28,7 @@
     "prefixed",
     "nanoid"
   ],
-  "author": "Prageeth Silva <prageeth@codemode.com.au>",
+  "author": "Prageeth Silva <prageethsilva@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.0.0",

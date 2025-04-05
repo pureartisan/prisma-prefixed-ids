@@ -31,7 +31,7 @@
   "author": "Prageeth Silva <prageethsilva@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.0.0",
+    "@prisma/client": "^5.0.0 || ^6.0.0",
     "nanoid": "^5.0.0"
   },
   "devDependencies": {
@@ -48,6 +48,6 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@prisma/client": "^5.0.0"
+    "@prisma/client": "^5.0.0 || ^6.0.0"
   }
 }

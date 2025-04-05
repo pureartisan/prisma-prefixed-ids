@@ -28,7 +28,7 @@ const prisma = new PrismaClient();
 
 // Define your model prefixes
 const prefixes: Partial<Record<ModelName, string>> = {
-	 Organization: 'org',
+  Organization: 'org',
   User: 'usr',
   // Add more model prefixes as needed
 };

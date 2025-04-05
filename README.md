@@ -3,7 +3,6 @@
 [![npm version](https://img.shields.io/npm/v/prisma-prefixed-ids.svg)](https://www.npmjs.com/package/prisma-prefixed-ids)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://github.com/pureartisan/prisma-prefixed-ids/actions/workflows/ci.yml/badge.svg)](https://github.com/pureartisan/prisma-prefixed-ids/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/pureartisan/prisma-prefixed-ids/branch/main/graph/badge.svg)](https://codecov.io/gh/pureartisan/prisma-prefixed-ids)
 
 A Prisma extension that automatically adds prefixed IDs to your models. This package allows you to configure custom prefixes for your models and even customize how the IDs are generated.
 

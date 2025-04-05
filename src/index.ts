@@ -9,7 +9,7 @@ export type PrefixConfig<ModelName extends string> = {
   idGenerator?: (prefix: string) => string;
 };
 
-const defaultIdGenerator = (prefix: string) => {
+const defaultIdGenerator = (prefix: string): string => {
   const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 24);
   return `${prefix}_${nanoid()}`;
 };
@@ -21,11 +21,19 @@ type QueryArgs = {
 };
 
 export function createPrefixedIdsExtension<ModelName extends string>(
-  config: PrefixConfig<ModelName>
-) {
+  config: PrefixConfig<ModelName>,
+): {
+  name: string;
+  query: {
+    $allModels: {
+      create: (args: QueryArgs) => Promise<any>;
+      createMany: (args: QueryArgs) => Promise<any>;
+    };
+  };
+} {
   const { prefixes, idGenerator = defaultIdGenerator } = config;
 
-  const prefixedId = (modelName: ModelName) => {
+  const prefixedId = (modelName: ModelName): string | null => {
     if (modelName in prefixes) {
       return idGenerator(prefixes[modelName]);
     }
@@ -36,7 +44,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     name: "prefixedIds",
     query: {
       $allModels: {
-        create: ({ args, query, model }: QueryArgs) => {
+        create: ({ args, query, model }: QueryArgs): Promise<any> => {
           if (args.data && !args.data.id) {
             const id = prefixedId(model as ModelName);
             if (id) {
@@ -46,7 +54,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
           return query(args);
         },
 
-        createMany: ({ args, query, model }: QueryArgs) => {
+        createMany: ({ args, query, model }: QueryArgs): Promise<any> => {
           if (model in prefixes && args.data && Array.isArray(args.data)) {
             args.data = (args.data as Record<string, any>[]).map((item) => {
               if (!item.id) {
@@ -70,7 +78,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 
 export function extendPrismaClient<ModelName extends string = string>(
   prisma: PrismaClient,
-  config: PrefixConfig<ModelName>
-) {
+  config: PrefixConfig<ModelName>,
+): PrismaClient {
   return prisma.$extends(createPrefixedIdsExtension(config));
 }

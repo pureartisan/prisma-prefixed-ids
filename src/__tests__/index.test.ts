@@ -56,7 +56,7 @@ describe("PrefixedIdsExtension", () => {
 
     it("should use custom idGenerator if provided", async () => {
       const customIdGenerator = jest.fn(
-        (prefix: string) => `${prefix}_custom_id`
+        (prefix: string) => `${prefix}_custom_id`,
       );
       const extension = createPrefixedIdsExtension({
         prefixes: {

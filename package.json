@@ -10,7 +10,12 @@
     "prepare": "npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage --collectCoverageFrom='src/**/*.ts' --coveragePathIgnorePatterns='src/__tests__'",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "git:push": "git push && git push --tags"
   },
   "keywords": [
     "prisma",
@@ -29,7 +34,12 @@
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "@types/nanoid": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.0.0",
     "jest": "^29.0.0",
+    "prettier": "^3.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },

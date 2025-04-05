@@ -1,4 +1,4 @@
-import { type Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
 // Define ModelName type based on Prisma's model names
@@ -7,7 +7,7 @@ type ModelName = string;
 export type PrefixConfig<ModelName extends string> = {
   prefixes: Record<ModelName, string>;
   idGenerator?: (prefix: string) => string;
-}
+};
 
 const defaultIdGenerator = (prefix: string) => {
   const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 24);
@@ -20,7 +20,9 @@ type QueryArgs = {
   model: ModelName;
 };
 
-export function createPrefixedIdsExtension<ModelName extends string>(config: PrefixConfig<ModelName>) {
+export function createPrefixedIdsExtension<ModelName extends string>(
+  config: PrefixConfig<ModelName>
+) {
   const { prefixes, idGenerator = defaultIdGenerator } = config;
 
   const prefixedId = (modelName: ModelName) => {
@@ -66,6 +68,9 @@ export function createPrefixedIdsExtension<ModelName extends string>(config: Pre
   };
 }
 
-export function extendPrismaClient<ModelName extends string = string>(prisma: PrismaClient, config: PrefixConfig<ModelName>) {
+export function extendPrismaClient<ModelName extends string = string>(
+  prisma: PrismaClient,
+  config: PrefixConfig<ModelName>
+) {
   return prisma.$extends(createPrefixedIdsExtension(config));
-} 
+}

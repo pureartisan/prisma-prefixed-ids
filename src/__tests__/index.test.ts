@@ -584,5 +584,262 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data.id).toMatch(/^usr_/);
       expect(result.data.posts.create[0].id).toBe("custom_post_id");
     });
+
+    it("should handle nested createMany operations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              createMany: {
+                data: [{ title: "Test Post 1" }, { title: "Test Post 2" }],
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.createMany.data[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.createMany.data[1].id).toMatch(/^pst_/);
+    });
+
+    it("should handle update operation with nested creates", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.update({
+        args: {
+          where: { id: "usr_123" },
+          data: {
+            name: "Updated User",
+            posts: {
+              create: [
+                {
+                  title: "New Post",
+                  categories: {
+                    create: {
+                      name: "New Category",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.posts.create[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.create[0].categories.create.id).toMatch(/^cat_/);
+    });
+
+    it("should handle updateMany operation with nested creates", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.updateMany({
+        args: {
+          where: { name: "Test User" },
+          data: {
+            posts: {
+              createMany: {
+                data: [{ title: "New Post 1" }, { title: "New Post 2" }],
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.posts.createMany.data[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.createMany.data[1].id).toMatch(/^pst_/);
+    });
+
+    it("should handle upsert operation with nested creates", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              upsert: {
+                where: { id: "pst_123" },
+                create: {
+                  title: "New Post",
+                  categories: {
+                    create: {
+                      name: "New Category",
+                    },
+                  },
+                },
+                update: {
+                  title: "Updated Post",
+                },
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.upsert.create.id).toMatch(/^pst_/);
+      expect(result.data.posts.upsert.create.categories.create.id).toMatch(
+        /^cat_/,
+      );
+    });
+
+    it("should handle connectOrCreate operation with nested creates", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              connectOrCreate: {
+                where: { id: "pst_123" },
+                create: {
+                  title: "New Post",
+                  categories: {
+                    create: {
+                      name: "New Category",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.connectOrCreate.create.id).toMatch(/^pst_/);
+      expect(
+        result.data.posts.connectOrCreate.create.categories.create.id,
+      ).toMatch(/^cat_/);
+    });
+
+    it("should handle complex nested operations in update", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+            Comment: "cmt",
+            Like: "lik",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.update({
+        args: {
+          where: { id: "usr_123" },
+          data: {
+            posts: {
+              create: {
+                title: "New Post",
+                categories: {
+                  create: {
+                    name: "New Category",
+                  },
+                },
+                comments: {
+                  createMany: {
+                    data: [
+                      {
+                        content: "Comment 1",
+                        likes: {
+                          create: {
+                            type: "like",
+                          },
+                        },
+                      },
+                      {
+                        content: "Comment 2",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.posts.create.id).toMatch(/^pst_/);
+      expect(result.data.posts.create.categories.create.id).toMatch(/^cat_/);
+      expect(result.data.posts.create.comments.createMany.data[0].id).toMatch(
+        /^cmt_/,
+      );
+      expect(
+        result.data.posts.create.comments.createMany.data[0].likes.create.id,
+      ).toMatch(/^lik_/);
+      expect(result.data.posts.create.comments.createMany.data[1].id).toMatch(
+        /^cmt_/,
+      );
+    });
   });
 });

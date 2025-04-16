@@ -254,6 +254,10 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     $allModels: {
       create: (args: QueryArgs) => Promise<any>;
       createMany: (args: QueryArgs) => Promise<any>;
+      update: (args: QueryArgs) => Promise<any>;
+      updateMany: (args: QueryArgs) => Promise<any>;
+      upsert: (args: QueryArgs) => Promise<any>;
+      connectOrCreate: (args: QueryArgs) => Promise<any>;
     };
   };
 } {
@@ -263,49 +267,37 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 
   const { prefixes, idGenerator = defaultIdGenerator } = config;
 
+  const prefixedId = (modelName: ModelName): string | null => {
+    if (modelName in prefixes) {
+      return idGenerator(prefixes[modelName] as string);
+    }
+    return null;
+  };
+
+  const createOperationHandler = (operation: string) => {
+    return ({ args, query, model }: QueryArgs): Promise<any> => {
+      if (args.data && dmmf) {
+        args.data = processNestedData(
+          args.data,
+          model as ModelName,
+          prefixedId,
+          dmmf,
+        );
+      }
+      return query(args);
+    };
+  };
+
   return {
     name: "prefixedIds",
     query: {
       $allModels: {
-        create: ({ args, query, model }: QueryArgs): Promise<any> => {
-          const prefixedId = (modelName: ModelName): string | null => {
-            if (modelName in prefixes) {
-              return idGenerator(prefixes[modelName] as string);
-            }
-            return null;
-          };
-
-          if (args.data && dmmf) {
-            args.data = processNestedData(
-              args.data,
-              model as ModelName,
-              prefixedId,
-              dmmf,
-            );
-          }
-
-          return query(args);
-        },
-
-        createMany: ({ args, query, model }: QueryArgs): Promise<any> => {
-          const prefixedId = (modelName: ModelName): string | null => {
-            if (modelName in prefixes) {
-              return idGenerator(prefixes[modelName] as string);
-            }
-            return null;
-          };
-
-          if (args.data && dmmf) {
-            args.data = processNestedData(
-              args.data,
-              model as ModelName,
-              prefixedId,
-              dmmf,
-            );
-          }
-
-          return query(args);
-        },
+        create: createOperationHandler("create"),
+        createMany: createOperationHandler("createMany"),
+        update: createOperationHandler("update"),
+        updateMany: createOperationHandler("updateMany"),
+        upsert: createOperationHandler("upsert"),
+        connectOrCreate: createOperationHandler("connectOrCreate"),
       },
     },
   };

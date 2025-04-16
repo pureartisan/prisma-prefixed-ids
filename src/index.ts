@@ -23,6 +23,63 @@ type QueryArgs = {
   model: ModelName;
 };
 
+interface CreateManyOperation {
+  data: any[];
+}
+
+// Helper function to process nested data
+const processNestedData = <T extends ModelName>(
+  data: any,
+  model: T,
+  prefixedId: (model: T) => string | null,
+): any => {
+  if (!data) return data;
+
+  // Handle array of items
+  if (Array.isArray(data)) {
+    return data.map((item) => processNestedData(item, model, prefixedId));
+  }
+
+  // Handle object
+  if (typeof data === "object") {
+    const result: any = { ...data };
+
+    // Generate ID for the current model if needed
+    if (!result.id) {
+      const id = prefixedId(model);
+      if (id) {
+        result.id = id;
+      }
+    }
+
+    // Process nested relations
+    for (const [key, value] of Object.entries(result)) {
+      if (value && typeof value === "object") {
+        // Handle create operations
+        if (key === "create") {
+          result[key] = processNestedData(value, model, prefixedId);
+        } else if (key === "createMany" && "data" in value) {
+          const createManyOp = value as CreateManyOperation;
+          result[key] = {
+            ...value,
+            data: processNestedData(createManyOp.data, model, prefixedId),
+          };
+        }
+        // Handle nested objects that might be relations
+        else if (!Array.isArray(value) && value !== null) {
+          // Convert relation field name to model name (e.g., 'posts' -> 'Post')
+          const modelName = key.charAt(0).toUpperCase() + key.slice(1);
+          result[key] = processNestedData(value, modelName as T, prefixedId);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  return data;
+};
+
 export function createPrefixedIdsExtension<ModelName extends string>(
   config: PrefixConfig<ModelName>,
 ): {
@@ -48,29 +105,23 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     query: {
       $allModels: {
         create: ({ args, query, model }: QueryArgs): Promise<any> => {
-          if (args.data && !args.data.id) {
-            const id = prefixedId(model as ModelName);
-            if (id) {
-              args.data.id = id;
-            }
+          if (args.data) {
+            args.data = processNestedData(
+              args.data,
+              model as ModelName,
+              prefixedId,
+            );
           }
           return query(args);
         },
 
         createMany: ({ args, query, model }: QueryArgs): Promise<any> => {
-          if (model in prefixes && args.data && Array.isArray(args.data)) {
-            args.data = (args.data as Record<string, any>[]).map((item) => {
-              if (!item.id) {
-                const id = prefixedId(model as ModelName);
-                if (id) {
-                  return {
-                    ...item,
-                    id,
-                  };
-                }
-              }
-              return item;
-            });
+          if (args.data) {
+            args.data = processNestedData(
+              args.data,
+              model as ModelName,
+              prefixedId,
+            );
           }
           return query(args);
         },

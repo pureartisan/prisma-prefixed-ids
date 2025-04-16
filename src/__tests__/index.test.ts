@@ -181,4 +181,157 @@ describe("PrefixedIdsExtension", () => {
       }).not.toThrow();
     });
   });
+
+  describe("Nested Writes", () => {
+    it("should handle nested create operations", async () => {
+      const extension = createPrefixedIdsExtension({
+        prefixes: {
+          User: "usr",
+          Post: "pst",
+          Category: "cat",
+        },
+      });
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              create: [
+                {
+                  title: "Test Post 1",
+                  categories: {
+                    create: {
+                      name: "Test Category",
+                    },
+                  },
+                },
+                {
+                  title: "Test Post 2",
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.create[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.create[0].categories.create.id).toMatch(/^cat_/);
+      expect(result.data.posts.create[1].id).toMatch(/^pst_/);
+    });
+
+    it("should handle nested createMany operations", async () => {
+      const extension = createPrefixedIdsExtension({
+        prefixes: {
+          User: "usr",
+          Post: "pst",
+        },
+      });
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              createMany: {
+                data: [{ title: "Test Post 1" }, { title: "Test Post 2" }],
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.createMany.data[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.createMany.data[1].id).toMatch(/^pst_/);
+    });
+
+    it("should handle deep nested creates", async () => {
+      const extension = createPrefixedIdsExtension({
+        prefixes: {
+          User: "usr",
+          Post: "pst",
+          Comment: "cmt",
+          Like: "lik",
+        },
+      });
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              create: [
+                {
+                  title: "Test Post",
+                  comments: {
+                    create: [
+                      {
+                        content: "Test Comment",
+                        likes: {
+                          create: {
+                            type: "like",
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.create[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.create[0].comments.create[0].id).toMatch(
+        /^cmt_/,
+      );
+      expect(
+        result.data.posts.create[0].comments.create[0].likes.create.id,
+      ).toMatch(/^lik_/);
+    });
+
+    it("should not modify existing IDs in nested structures", async () => {
+      const extension = createPrefixedIdsExtension({
+        prefixes: {
+          User: "usr",
+          Post: "pst",
+        },
+      });
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              create: [
+                {
+                  id: "custom_post_id",
+                  title: "Test Post",
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.create[0].id).toBe("custom_post_id");
+    });
+  });
 });

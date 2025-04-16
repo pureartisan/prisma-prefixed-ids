@@ -5,7 +5,7 @@ import { customAlphabet } from "nanoid";
 type Nullable<T> = T | null;
 
 // Define ModelName type based on Prisma's model names
-type ModelName = string;
+export type ModelName = string;
 
 export type PrefixConfig<ModelName extends string> = {
   prefixes: Partial<Record<ModelName, string>>;
@@ -43,7 +43,7 @@ const RELATION_OPERATIONS = [
 type RelationOperation = (typeof RELATION_OPERATIONS)[number];
 
 // Helper to find the relation model from DMMF
-const findRelationModel = (
+export const findRelationModel = (
   dmmf: any,
   parentModel: string,
   fieldName: string,
@@ -70,7 +70,7 @@ const isRelationOperation = (key: string): key is RelationOperation => {
 };
 
 // Helper function to process nested data with proper model detection
-const processNestedData = <T extends ModelName>(
+export const processNestedData = <T extends ModelName>(
   data: any,
   model: T,
   prefixedId: (model: T) => string | null,
@@ -135,14 +135,7 @@ const processNestedData = <T extends ModelName>(
                       dmmf,
                     )
                   : value.create,
-                update: value.update
-                  ? processNestedData(
-                      value.update,
-                      relatedModel as T,
-                      prefixedId,
-                      dmmf,
-                    )
-                  : value.update,
+                update: value.update,
               };
             } else if (key === "connectOrCreate") {
               // Handle connectOrCreate operation
@@ -157,14 +150,17 @@ const processNestedData = <T extends ModelName>(
                     )
                   : value.create,
               };
-            } else {
-              // For other operations like create, update
+            } else if (key === "create" || key === "createMany") {
+              // Only process create operations with ID generation
               result[key] = processNestedData(
                 value,
                 relatedModel as T,
                 prefixedId,
                 dmmf,
               );
+            } else {
+              // For other operations like update, just pass through the value
+              result[key] = value;
             }
             break;
           }
@@ -203,14 +199,7 @@ const processNestedData = <T extends ModelName>(
                     dmmf,
                   )
                 : value[op].create,
-              update: value[op].update
-                ? processNestedData(
-                    value[op].update,
-                    relatedModel as T,
-                    prefixedId,
-                    dmmf,
-                  )
-                : value[op].update,
+              update: value[op].update, // Don't process update
             };
           } else if (op === "connectOrCreate") {
             updatedValue[op] = {
@@ -224,14 +213,17 @@ const processNestedData = <T extends ModelName>(
                   )
                 : value[op].create,
             };
-          } else {
-            // create, update, etc.
+          } else if (op === "create" || op === "createMany") {
+            // Only process create operations with ID generation
             updatedValue[op] = processNestedData(
               value[op],
               relatedModel as T,
               prefixedId,
               dmmf,
             );
+          } else {
+            // For other operations like update, just pass through the value
+            updatedValue[op] = value[op];
           }
         }
 

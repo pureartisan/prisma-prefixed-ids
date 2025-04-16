@@ -5,6 +5,10 @@ import {
   createPrefixedIdsExtension,
   extendPrismaClient,
   PrefixConfig,
+  findRelationModel,
+  processNestedData,
+  getModelNames,
+  ModelName,
 } from "../index";
 
 // Create a mock DMMF structure that represents your data model
@@ -16,8 +20,9 @@ const mockDMMF = {
         fields: [
           { name: "id", kind: "scalar", type: "String" },
           { name: "name", kind: "scalar", type: "String" },
-          { name: "posts", kind: "object", type: "Post", isList: true }
-        ]
+          { name: "posts", kind: "object", type: "Post", isList: true },
+          { name: "comments", kind: "object", type: "Comment", isList: true },
+        ],
       },
       {
         name: "Post",
@@ -25,33 +30,33 @@ const mockDMMF = {
           { name: "id", kind: "scalar", type: "String" },
           { name: "title", kind: "scalar", type: "String" },
           { name: "categories", kind: "object", type: "Category" },
-          { name: "comments", kind: "object", type: "Comment", isList: true }
-        ]
+          { name: "comments", kind: "object", type: "Comment", isList: true },
+        ],
       },
       {
         name: "Category",
         fields: [
           { name: "id", kind: "scalar", type: "String" },
-          { name: "name", kind: "scalar", type: "String" }
-        ]
+          { name: "name", kind: "scalar", type: "String" },
+        ],
       },
       {
         name: "Comment",
         fields: [
           { name: "id", kind: "scalar", type: "String" },
           { name: "content", kind: "scalar", type: "String" },
-          { name: "likes", kind: "object", type: "Like" }
-        ]
+          { name: "likes", kind: "object", type: "Like" },
+        ],
       },
       {
         name: "Like",
         fields: [
           { name: "id", kind: "scalar", type: "String" },
-          { name: "type", kind: "scalar", type: "String" }
-        ]
-      }
-    ]
-  }
+          { name: "type", kind: "scalar", type: "String" },
+        ],
+      },
+    ],
+  },
 };
 
 // Mock PrismaClient
@@ -840,6 +845,505 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data.posts.create.comments.createMany.data[1].id).toMatch(
         /^cmt_/,
       );
+    });
+  });
+
+  describe("findRelationModel", () => {
+    it("should return null when model is not found in DMMF", () => {
+      const result = findRelationModel(mockDMMF, "NonExistentModel", "posts");
+      expect(result).toBeNull();
+    });
+
+    it("should return null when field is not found in model", () => {
+      const result = findRelationModel(mockDMMF, "User", "nonExistentField");
+      expect(result).toBeNull();
+    });
+
+    it("should return null when field is not an object type", () => {
+      const result = findRelationModel(mockDMMF, "User", "name");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("processNestedData", () => {
+    it("should handle nested data with non-object values", () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = processNestedData(
+        {
+          name: "Test User",
+          age: 30,
+          isActive: true,
+        },
+        "User",
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        age: 30,
+        isActive: true,
+        id: "usr_123",
+      });
+    });
+
+    it("should handle nested data with null values", () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: null,
+        },
+        "User",
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        posts: null,
+        id: "usr_123",
+      });
+    });
+
+    it("should handle primitive data types", () => {
+      const result = processNestedData(
+        "string value",
+        "User",
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+      expect(result).toBe("string value");
+    });
+
+    it("should handle array of primitive values", () => {
+      const result = processNestedData(
+        [1, 2, 3],
+        "User",
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+      expect(result).toEqual([1, 2, 3]);
+    });
+
+    it("should handle nested data with relation operations", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            create: {
+              title: "Test Post",
+              categories: {
+                create: {
+                  name: "Test Category",
+                },
+              },
+            },
+            update: {
+              title: "Updated Post",
+            },
+            upsert: {
+              where: { id: "pst_123" },
+              create: {
+                title: "New Post",
+              },
+              update: {
+                title: "Updated Post",
+              },
+            },
+            connectOrCreate: {
+              where: { id: "pst_123" },
+              create: {
+                title: "New Post",
+              },
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => {
+          switch (model) {
+            case "User":
+              return "usr_123";
+            case "Post":
+              return "pst_456";
+            case "Category":
+              return "cat_789";
+            default:
+              return null;
+          }
+        },
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          create: {
+            title: "Test Post",
+            id: "pst_456",
+            categories: {
+              create: {
+                name: "Test Category",
+                id: "cat_789",
+              },
+            },
+          },
+          update: {
+            title: "Updated Post",
+          },
+          upsert: {
+            where: { id: "pst_123" },
+            create: {
+              title: "New Post",
+              id: "pst_456",
+            },
+            update: {
+              title: "Updated Post",
+            },
+          },
+          connectOrCreate: {
+            where: { id: "pst_123" },
+            create: {
+              title: "New Post",
+              id: "pst_456",
+            },
+          },
+        },
+      });
+    });
+
+    it("should handle nested data with createMany operation", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            createMany: {
+              data: [{ title: "Post 1" }, { title: "Post 2" }],
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => {
+          switch (model) {
+            case "User":
+              return "usr_123";
+            case "Post":
+              return "pst_456";
+            default:
+              return null;
+          }
+        },
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          createMany: {
+            data: [
+              { title: "Post 1", id: "pst_456" },
+              { title: "Post 2", id: "pst_456" },
+            ],
+          },
+        },
+      });
+    });
+
+    it("should handle nested data with no relation fields", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          age: 30,
+          nonRelationField: {
+            someData: "test",
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        age: 30,
+        nonRelationField: {
+          someData: "test",
+        },
+        id: "usr_123",
+      });
+    });
+
+    it("should handle nested data with relation field but no operations", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            someData: "test",
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          someData: "test",
+        },
+      });
+    });
+
+    it("should handle nested data with relation operation but no matching relation field", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          create: {
+            title: "Test Post",
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        create: {
+          title: "Test Post",
+        },
+      });
+    });
+
+    it("should handle nested data with relation field but invalid operation", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            invalidOp: {
+              title: "Test Post",
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          invalidOp: {
+            title: "Test Post",
+          },
+        },
+      });
+    });
+
+    it("should handle createMany with non-array data", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            createMany: {
+              data: "invalid",
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          createMany: {
+            data: "invalid",
+          },
+        },
+      });
+    });
+
+    it("should handle relation field with no model found", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          unknownRelation: {
+            create: {
+              title: "Test",
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        unknownRelation: {
+          create: {
+            title: "Test",
+          },
+        },
+      });
+    });
+
+    it("should handle undefined data", () => {
+      const result = processNestedData(
+        undefined,
+        "User" as ModelName,
+        (model) => (model === "User" ? "usr_123" : null),
+        mockDMMF,
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should handle nested data with multiple relation fields", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            create: {
+              title: "Test Post",
+            },
+          },
+          comments: {
+            create: {
+              content: "Test Comment",
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => {
+          switch (model) {
+            case "User":
+              return "usr_123";
+            case "Post":
+              return "pst_456";
+            case "Comment":
+              return "cmt_789";
+            default:
+              return null;
+          }
+        },
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          create: {
+            title: "Test Post",
+            id: "pst_456",
+          },
+        },
+        comments: {
+          create: {
+            content: "Test Comment",
+            id: "cmt_789",
+          },
+        },
+      });
+    });
+
+    it("should handle nested data with multiple relation operations on same field", () => {
+      const result = processNestedData(
+        {
+          name: "Test User",
+          posts: {
+            create: {
+              title: "Test Post",
+            },
+            createMany: {
+              data: [{ title: "Post 1" }, { title: "Post 2" }],
+            },
+            update: {
+              title: "Updated Post",
+            },
+          },
+        },
+        "User" as ModelName,
+        (model) => {
+          switch (model) {
+            case "User":
+              return "usr_123";
+            case "Post":
+              return "pst_456";
+            default:
+              return null;
+          }
+        },
+        mockDMMF,
+      );
+
+      expect(result).toEqual({
+        name: "Test User",
+        id: "usr_123",
+        posts: {
+          create: {
+            title: "Test Post",
+            id: "pst_456",
+          },
+          createMany: {
+            data: [
+              { title: "Post 1", id: "pst_456" },
+              { title: "Post 2", id: "pst_456" },
+            ],
+          },
+          update: {
+            title: "Updated Post",
+          },
+        },
+      });
+    });
+  });
+
+  describe("getModelNames", () => {
+    it("should return empty array when DMMF is not available", () => {
+      const prismaWithoutDmmf = {
+        _baseDmmf: undefined,
+        _dmmf: undefined,
+        _client: undefined,
+      };
+
+      const result = getModelNames(prismaWithoutDmmf as any);
+      expect(result).toEqual([]);
+    });
+
+    it("should return model names from DMMF", () => {
+      const prismaWithDmmf = {
+        _baseDmmf: mockDMMF,
+      };
+
+      const result = getModelNames(prismaWithDmmf as any);
+      expect(result).toEqual(["User", "Post", "Category", "Comment", "Like"]);
     });
   });
 });

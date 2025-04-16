@@ -7,24 +7,64 @@ import {
   PrefixConfig,
 } from "../index";
 
-type MockUser = {
-  id: string;
-  name: string;
-};
-
-type CreateArgs = {
-  data: Record<string, unknown>;
+// Create a mock DMMF structure that represents your data model
+const mockDMMF = {
+  datamodel: {
+    models: [
+      {
+        name: "User",
+        fields: [
+          { name: "id", kind: "scalar", type: "String" },
+          { name: "name", kind: "scalar", type: "String" },
+          { name: "posts", kind: "object", type: "Post", isList: true }
+        ]
+      },
+      {
+        name: "Post",
+        fields: [
+          { name: "id", kind: "scalar", type: "String" },
+          { name: "title", kind: "scalar", type: "String" },
+          { name: "categories", kind: "object", type: "Category" },
+          { name: "comments", kind: "object", type: "Comment", isList: true }
+        ]
+      },
+      {
+        name: "Category",
+        fields: [
+          { name: "id", kind: "scalar", type: "String" },
+          { name: "name", kind: "scalar", type: "String" }
+        ]
+      },
+      {
+        name: "Comment",
+        fields: [
+          { name: "id", kind: "scalar", type: "String" },
+          { name: "content", kind: "scalar", type: "String" },
+          { name: "likes", kind: "object", type: "Like" }
+        ]
+      },
+      {
+        name: "Like",
+        fields: [
+          { name: "id", kind: "scalar", type: "String" },
+          { name: "type", kind: "scalar", type: "String" }
+        ]
+      }
+    ]
+  }
 };
 
 // Mock PrismaClient
 jest.mock("@prisma/client", () => {
   return {
     PrismaClient: jest.fn().mockImplementation(() => ({
-      $extends: jest.fn(),
+      $extends: jest.fn().mockReturnValue({}),
       user: {
         create: jest.fn(),
         findUnique: jest.fn(),
       },
+      // Add the DMMF to the mocked PrismaClient
+      _dmmf: mockDMMF,
     })),
   };
 });
@@ -45,21 +85,27 @@ describe("PrefixedIdsExtension", () => {
 
   describe("createPrefixedIdsExtension", () => {
     it("should create an extension with the correct name", () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          Test: "test",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            Test: "test",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       expect(extension.name).toBe("prefixedIds");
     });
 
     it("should use default idGenerator if none provided", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          Test: "test",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            Test: "test",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.create({
         args: { data: {} },
@@ -75,12 +121,15 @@ describe("PrefixedIdsExtension", () => {
       const customIdGenerator = jest.fn(
         (prefix: string) => `${prefix}_custom_id`,
       );
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          Test: "test",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            Test: "test",
+          },
+          idGenerator: customIdGenerator,
         },
-        idGenerator: customIdGenerator,
-      });
+        mockDMMF,
+      );
 
       await extension.query.$allModels.create({
         args: { data: {} },
@@ -95,11 +144,14 @@ describe("PrefixedIdsExtension", () => {
     });
 
     it("should not modify args if model has no prefix", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          Test: "test",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            Test: "test",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const originalArgs = { data: {} };
       const result = await extension.query.$allModels.create({
@@ -113,11 +165,14 @@ describe("PrefixedIdsExtension", () => {
     });
 
     it("should handle createMany operation", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          Test: "test",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            Test: "test",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.createMany({
         args: {
@@ -133,6 +188,102 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data[1]).toHaveProperty("id");
     });
 
+    it("should use DMMF to handle nested relations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              create: [
+                {
+                  title: "Test Post 1",
+                  categories: {
+                    create: {
+                      name: "Test Category",
+                    },
+                  },
+                },
+                {
+                  title: "Test Post 2",
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.create[0].id).toMatch(/^pst_/);
+      expect(result.data.posts.create[0].categories.create.id).toMatch(/^cat_/);
+      expect(result.data.posts.create[1].id).toMatch(/^pst_/);
+    });
+
+    it("should throw error if DMMF is not provided", () => {
+      expect(() => {
+        createPrefixedIdsExtension(
+          {
+            prefixes: {
+              Test: "test",
+            },
+          },
+          undefined as any,
+        );
+      }).toThrow("DMMF is required for prefixed IDs extension");
+    });
+
+    it("should handle DMMF with missing model definitions", async () => {
+      const incompleteDMMF = {
+        datamodel: {
+          models: [
+            {
+              name: "User",
+              fields: [
+                { name: "id", kind: "scalar", type: "String" },
+                { name: "name", kind: "scalar", type: "String" },
+              ],
+            },
+          ],
+        },
+      };
+
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        incompleteDMMF as any,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.id).toMatch(/^usr_/);
+    });
+
     it("should generate IDs with uppercase letters", async (): Promise<void> => {
       const prefixConfig: PrefixConfig<"User"> = {
         prefixes: {
@@ -144,7 +295,7 @@ describe("PrefixedIdsExtension", () => {
         },
       };
 
-      const extension = createPrefixedIdsExtension(prefixConfig);
+      const extension = createPrefixedIdsExtension(prefixConfig, mockDMMF);
       prisma.$extends(extension);
 
       // Mock the create operation
@@ -172,6 +323,7 @@ describe("PrefixedIdsExtension", () => {
         },
       });
 
+      expect(extendedPrisma).toBeDefined();
       expect(prisma.$extends).toHaveBeenCalled();
     });
 
@@ -180,17 +332,107 @@ describe("PrefixedIdsExtension", () => {
         extendPrismaClient(prisma, {} as any);
       }).not.toThrow();
     });
+
+    it("should extract DMMF from _baseDmmf", () => {
+      const prismaWithBaseDmmf = {
+        ...prisma,
+        _baseDmmf: mockDMMF,
+      };
+
+      extendPrismaClient(prismaWithBaseDmmf, {
+        prefixes: { Test: "test" },
+      });
+
+      expect(prisma.$extends).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.any(Object),
+        }),
+      );
+    });
+
+    it("should extract DMMF from _dmmf", () => {
+      const prismaWithDmmf = {
+        ...prisma,
+        _dmmf: mockDMMF,
+      };
+
+      extendPrismaClient(prismaWithDmmf, {
+        prefixes: { Test: "test" },
+      });
+
+      expect(prisma.$extends).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.any(Object),
+        }),
+      );
+    });
+
+    it("should extract DMMF from _client._baseDmmf", () => {
+      const prismaWithClientDmmf = {
+        ...prisma,
+        _client: {
+          _baseDmmf: mockDMMF,
+        },
+      };
+
+      extendPrismaClient(prismaWithClientDmmf, {
+        prefixes: { Test: "test" },
+      });
+
+      expect(prisma.$extends).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.any(Object),
+        }),
+      );
+    });
+
+    it("should extract DMMF from _client._dmmf", () => {
+      const prismaWithClientDmmf = {
+        ...prisma,
+        _client: {
+          _dmmf: mockDMMF,
+        },
+      };
+
+      extendPrismaClient(prismaWithClientDmmf, {
+        prefixes: { Test: "test" },
+      });
+
+      expect(prisma.$extends).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.any(Object),
+        }),
+      );
+    });
+
+    it("should throw error if no DMMF can be found", () => {
+      const prismaWithoutDmmf = {
+        ...prisma,
+        _baseDmmf: undefined,
+        _dmmf: undefined,
+        _client: undefined,
+      };
+
+      expect(() => {
+        extendPrismaClient(prismaWithoutDmmf, {
+          prefixes: { Test: "test" },
+        });
+      }).toThrow("DMMF is required for prefixed IDs extension");
+    });
   });
 
   describe("Nested Writes", () => {
     it("should handle nested create operations", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          User: "usr",
-          Post: "pst",
-          Category: "cat",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.create({
         args: {
@@ -225,12 +467,15 @@ describe("PrefixedIdsExtension", () => {
     });
 
     it("should handle nested createMany operations", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          User: "usr",
-          Post: "pst",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.create({
         args: {
@@ -254,14 +499,17 @@ describe("PrefixedIdsExtension", () => {
     });
 
     it("should handle deep nested creates", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          User: "usr",
-          Post: "pst",
-          Comment: "cmt",
-          Like: "lik",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Comment: "cmt",
+            Like: "lik",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.create({
         args: {
@@ -304,12 +552,15 @@ describe("PrefixedIdsExtension", () => {
     });
 
     it("should not modify existing IDs in nested structures", async () => {
-      const extension = createPrefixedIdsExtension({
-        prefixes: {
-          User: "usr",
-          Post: "pst",
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
         },
-      });
+        mockDMMF,
+      );
 
       const result = await extension.query.$allModels.create({
         args: {

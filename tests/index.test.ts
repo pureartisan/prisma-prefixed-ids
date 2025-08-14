@@ -1047,18 +1047,16 @@ describe("PrefixedIdsExtension", () => {
       const result = await extension.query.$allModels.upsert({
         args: {
           where: { id: "usr_123" },
-          data: {
-            create: {
-              name: "New User",
-              posts: {
-                createMany: {
-                  data: [{ title: "Post 1" }, { title: "Post 2" }],
-                },
+          create: {
+            name: "New User",
+            posts: {
+              createMany: {
+                data: [{ title: "Post 1" }, { title: "Post 2" }],
               },
             },
-            update: {
-              name: "Updated User",
-            },
+          },
+          update: {
+            name: "Updated User",
           },
         },
         query: mockQuery,
@@ -1066,12 +1064,12 @@ describe("PrefixedIdsExtension", () => {
       });
 
       expect(result).toBeDefined();
-      expect(result.data.id).toMatch(/^usr_/);
-      expect(result.data.create.name).toBe("New User");
-      // Note: Since the create data is nested, the posts operations aren't processed by the ID generator
-      expect(result.data.create.posts.createMany.data).toHaveLength(2);
-      expect(result.data.create.posts.createMany.data[0].title).toBe("Post 1");
-      expect(result.data.create.posts.createMany.data[1].title).toBe("Post 2");
+      expect(result.create.id).toMatch(/^usr_/);
+      expect(result.create.name).toBe("New User");
+      // The posts operations are processed and get IDs
+      expect(result.create.posts.createMany.data).toHaveLength(2);
+      expect(result.create.posts.createMany.data[0].title).toBe("Post 1");
+      expect(result.create.posts.createMany.data[1].title).toBe("Post 2");
     });
 
     it("should handle connectOrCreate operations in nested writes", async () => {

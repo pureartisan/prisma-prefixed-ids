@@ -86,7 +86,7 @@ export const processNestedData = <T extends ModelName>(
   if (typeof data === "object") {
     const result: any = { ...data };
 
-    // Generate ID for the current model if needed
+    // Generate ID for the current model if needed (for nested creates)
     if (!result.id) {
       const id = prefixedId(model);
       if (id) {
@@ -263,15 +263,94 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     return null;
   };
 
-  const createOperationHandler = (_operation: string) => {
+  const createOperationHandler = (operation: string) => {
     return ({ args, query, model }: QueryArgs): Promise<any> => {
-      if (args.data && dmmf) {
-        args.data = processNestedData(
-          args.data,
-          model as ModelName,
-          prefixedId,
-          dmmf,
-        );
+      if (args.data) {
+        if (operation === "createMany") {
+          // For createMany, data is an array
+          if (Array.isArray(args.data)) {
+            args.data = args.data.map((item: any) => {
+              if (!item.id) {
+                const id = prefixedId(model as ModelName);
+                if (id) {
+                  item.id = id;
+                }
+              }
+              return item;
+            });
+          }
+        } else if (operation === "create") {
+          // For regular create operations only
+          if (!args.data.id) {
+            const id = prefixedId(model as ModelName);
+            if (id) {
+              args.data.id = id;
+            }
+          }
+          // Process nested data to add IDs to nested creates
+          if (dmmf) {
+            args.data = processNestedData(
+              args.data,
+              model as ModelName,
+              prefixedId,
+              dmmf,
+            );
+          }
+        } else if (operation === "update" || operation === "updateMany") {
+          // For update operations, only process nested creates, don't add ID to root
+          if (dmmf) {
+            args.data = processNestedData(
+              args.data,
+              model as ModelName,
+              prefixedId,
+              dmmf,
+            );
+          }
+        } else if (operation === "upsert") {
+          // For upsert operations, add ID to create branch only
+          if (args.create && !args.create.id) {
+            const id = prefixedId(model as ModelName);
+            if (id) {
+              args.create.id = id;
+            }
+          }
+          // Process nested data in both create and update branches
+          if (dmmf) {
+            if (args.create) {
+              args.create = processNestedData(
+                args.create,
+                model as ModelName,
+                prefixedId,
+                dmmf,
+              );
+            }
+            if (args.update) {
+              args.update = processNestedData(
+                args.update,
+                model as ModelName,
+                prefixedId,
+                dmmf,
+              );
+            }
+          }
+        } else if (operation === "connectOrCreate") {
+          // For connectOrCreate operations, add ID to create branch only
+          if (args.create && !args.create.id) {
+            const id = prefixedId(model as ModelName);
+            if (id) {
+              args.create.id = id;
+            }
+          }
+          // Process nested data in create branch
+          if (dmmf && args.create) {
+            args.create = processNestedData(
+              args.create,
+              model as ModelName,
+              prefixedId,
+              dmmf,
+            );
+          }
+        }
       }
       return query(args);
     };
@@ -309,14 +388,16 @@ export function extendPrismaClient<
 export function getDMMF(clientOrContext: PrismaClient | any): any {
   // Try newer structure first (_runtimeDataModel)
   if ((clientOrContext as any)._runtimeDataModel) {
+    const modelsEntries = Object.entries((clientOrContext as any)._runtimeDataModel.models);
+    
     return {
       datamodel: {
-        models: Object.values((clientOrContext as any)._runtimeDataModel.models).map((model: any) => ({
-          name: model.name,
+        models: modelsEntries.map(([name, model]: [string, any]) => ({
+          name: name,
           fields: model.fields.map((field: any) => ({
             name: field.name,
             kind: field.relationName ? 'object' : 'scalar',
-            type: field.relationName ? field.relationToFields?.[0] || field.type : field.type,
+            type: field.type,
             isList: field.isList,
           })),
         })),

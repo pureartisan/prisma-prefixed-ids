@@ -84,6 +84,9 @@ export function extendPrismaClient<
   Client extends {
     $extends: (extension: any) => any;
   } = PrismaClient,
->(prisma: Client, config: PrefixConfig<ModelName>): ReturnType<Client['$extends']> {
+>(
+  prisma: Client,
+  config: PrefixConfig<ModelName>,
+): ReturnType<Client["$extends"]> {
   return prisma.$extends(createPrefixedIdsExtension(config));
 }

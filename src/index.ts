@@ -1,8 +1,5 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
-
-// For TypeScript utility
-type Nullable<T> = T | null;
 
 // Define ModelName type based on Prisma's model names
 export type ModelName = string;
@@ -266,7 +263,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     return null;
   };
 
-  const createOperationHandler = (operation: string) => {
+  const createOperationHandler = (_operation: string) => {
     return ({ args, query, model }: QueryArgs): Promise<any> => {
       if (args.data && dmmf) {
         args.data = processNestedData(

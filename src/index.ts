@@ -307,6 +307,24 @@ export function extendPrismaClient<
 
 // Helper function to get DMMF from a Prisma Client instance or query context
 export function getDMMF(clientOrContext: PrismaClient | any): any {
+  // Try newer structure first (_runtimeDataModel)
+  if ((clientOrContext as any)._runtimeDataModel) {
+    return {
+      datamodel: {
+        models: Object.values((clientOrContext as any)._runtimeDataModel.models).map((model: any) => ({
+          name: model.name,
+          fields: model.fields.map((field: any) => ({
+            name: field.name,
+            kind: field.relationName ? 'object' : 'scalar',
+            type: field.relationName ? field.relationToFields?.[0] || field.type : field.type,
+            isList: field.isList,
+          })),
+        })),
+      },
+    };
+  }
+  
+  // Fallback to older structures
   return (
     (clientOrContext as any)._baseDmmf ||
     (clientOrContext as any)._dmmf ||

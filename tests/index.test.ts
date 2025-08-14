@@ -9,7 +9,7 @@ import {
   processNestedData,
   getModelNames,
   ModelName,
-} from "../index";
+} from "../src/index";
 
 // Create a mock DMMF structure that represents your data model
 const mockDMMF = {

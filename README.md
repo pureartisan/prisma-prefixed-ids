@@ -122,6 +122,27 @@ For example, with a 24-character nanoid:
 - The ID length is 24 characters + prefix length (e.g., `usr_abc123...`)
 - The alphabet includes 36 characters (0-9, a-z), making it both readable and compact
 
+## Development
+
+### Running Tests
+
+This project includes comprehensive unit and integration tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run only unit tests (fast, no database)
+npm run test:unit
+
+# Run only integration tests (uses real SQLite database)
+npm run test:integration
+```
+
+The integration tests automatically download the Prisma query engine and set up a SQLite database as needed. No additional setup is required.
+
+For more detailed development information, see [DEVELOPMENT.md](./DEVELOPMENT.md).
+
 ## License
 
 MIT 

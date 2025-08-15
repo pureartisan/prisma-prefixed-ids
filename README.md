@@ -19,7 +19,7 @@ import { type Prisma, PrismaClient } from "@prisma/client";
 import { extendPrismaClient } from 'prisma-prefixed-ids';
 
 type ModelName = Prisma.ModelName;
-// NOTE: is your Prisma.ModelName is not available in your setup,
+// NOTE: if your Prisma.ModelName is not available in your setup,
 // simply use the following instead:
 // type ModelName = string;
 
@@ -291,9 +291,9 @@ This package uses [nanoid](https://github.com/ai/nanoid) for ID generation inste
 5. **Better Performance**: nanoid is optimized for performance and generates IDs faster than UUID v4.
 
 For example, with a 24-character nanoid:
-- The chance of a collision is approximately 1 in 2^128 (same as UUID v4)
-- The ID length is 24 characters + prefix length (e.g., `usr_abc123...`)
-- The alphabet includes 36 characters (0-9, a-z), making it both readable and compact
+- The chance of a collision is approximately 1 in 2^142 (even better than UUID v4's 2^122)
+- The ID length is 24 characters + prefix length (e.g., `usr_abc123DEF...`)
+- The alphabet includes 62 characters (0-9, a-z, A-Z), providing high entropy while remaining readable
 
 ## Development
 

@@ -35,5 +35,11 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Set up test database
+      run: |
+        mkdir -p tests/db
+        npx prisma generate --schema=tests/prisma/schema.prisma
+        npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
+
     - name: Run tests with coverage
       run: npm run test:coverage 

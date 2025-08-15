@@ -6,6 +6,6 @@
     "types": ["jest", "node"],
     "esModuleInterop": true
   },
-  "include": ["src/**/*.test.ts", "src/**/__tests__/**/*"],
+  "include": ["tests/**/*.test.ts"],
   "exclude": ["node_modules"]
 }

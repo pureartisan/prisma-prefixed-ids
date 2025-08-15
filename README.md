@@ -19,7 +19,7 @@ import { type Prisma, PrismaClient } from "@prisma/client";
 import { extendPrismaClient } from 'prisma-prefixed-ids';
 
 type ModelName = Prisma.ModelName;
-// NOTE: is your Prisma.ModelName is not available in your setup,
+// NOTE: if your Prisma.ModelName is not available in your setup,
 // simply use the following instead:
 // type ModelName = string;
 
@@ -48,6 +48,179 @@ const organization = await extendedPrisma.organization.create({
 
 console.log(organization.id); // e.g., 'org_abc123...'
 ```
+
+## Nested Writes Support (v1.5.0+)
+
+Since version 1.5.0, this package fully supports **nested writes** with automatic ID generation for all related records. This includes complex relationship operations like:
+
+### Basic Nested Creates
+
+```typescript
+// Create a user with nested posts
+const userWithPosts = await extendedPrisma.user.create({
+  data: {
+    name: 'John Doe',
+    email: 'john@example.com',
+    posts: {
+      create: [
+        {
+          title: 'My First Post',
+          content: 'Hello world!',
+          published: true,
+        },
+        {
+          title: 'Draft Post', 
+          content: 'Work in progress...',
+          published: false,
+        },
+      ],
+    },
+  },
+  include: { posts: true },
+});
+
+// Result:
+// - User gets ID: usr_abc123...
+// - Posts get IDs: pst_def456..., pst_ghi789...
+```
+
+### Deep Nested Writes
+
+```typescript
+// Create deeply nested structures with automatic ID generation
+const complexUser = await extendedPrisma.user.create({
+  data: {
+    name: 'Jane Smith',
+    email: 'jane@example.com',
+    posts: {
+      create: {
+        title: 'Post with Categories and Comments',
+        content: 'A comprehensive post...',
+        published: true,
+        categories: {
+          create: {
+            name: 'Technology',
+            description: 'Tech-related posts',
+          },
+        },
+        comments: {
+          createMany: {
+            data: [
+              { content: 'Great post!', authorName: 'Reader 1' },
+              { content: 'Very informative', authorName: 'Reader 2' },
+            ],
+          },
+        },
+      },
+    },
+  },
+  include: {
+    posts: {
+      include: {
+        categories: true,
+        comments: true,
+      },
+    },
+  },
+});
+
+// All related records automatically get prefixed IDs:
+// - User: usr_...
+// - Post: pst_...  
+// - Category: cat_...
+// - Comments: cmt_..., cmt_...
+```
+
+### Update Operations with Nested Creates
+
+```typescript
+// Update existing records and create new related records
+const updatedUser = await extendedPrisma.user.update({
+  where: { id: 'usr_existing123' },
+  data: {
+    name: 'Updated Name',
+    posts: {
+      create: [
+        {
+          title: 'New Post After Update',
+          content: 'Added after user update',
+        },
+      ],
+    },
+  },
+  include: { posts: true },
+});
+
+// Existing user keeps original ID, new posts get fresh prefixed IDs
+```
+
+### Upsert Operations
+
+```typescript
+// Upsert with nested creates
+const upsertedUser = await extendedPrisma.user.upsert({
+  where: { email: 'maybe@example.com' },
+  create: {
+    name: 'New User',
+    email: 'maybe@example.com',
+    posts: {
+      create: {
+        title: 'First Post',
+        content: 'Created during upsert',
+      },
+    },
+  },
+  update: {
+    name: 'Updated Existing User',
+  },
+  include: { posts: true },
+});
+
+// IDs are generated only for the create branch if record doesn't exist
+```
+
+### ConnectOrCreate Operations
+
+```typescript
+// Connect to existing or create new with automatic ID generation
+const postWithCategories = await extendedPrisma.post.create({
+  data: {
+    title: 'Post with Mixed Categories',
+    content: 'Some categories exist, others will be created',
+    categories: {
+      connectOrCreate: [
+        {
+          where: { name: 'Existing Category' },
+          create: { name: 'Should not be created' },
+        },
+        {
+          where: { name: 'New Category' },
+          create: { 
+            name: 'New Category',
+            description: 'Freshly created category',
+          },
+        },
+      ],
+    },
+  },
+  include: { categories: true },
+});
+
+// New categories get prefixed IDs, existing ones are connected as-is
+```
+
+### Supported Nested Operations
+
+The extension supports all Prisma nested write operations:
+
+- ✅ **`create`** - Single nested record creation
+- ✅ **`createMany`** - Multiple nested records creation  
+- ✅ **`connectOrCreate`** - Connect existing or create new records
+- ✅ **`upsert`** - Update existing or create new records
+- ✅ **Deeply nested structures** - Multiple levels of relationships
+- ✅ **Mixed operations** - Combining create, connect, disconnect in single query
+
+All nested records that are created (not connected to existing ones) will automatically receive prefixed IDs according to your configuration.
 
 ## Custom ID Generation
 
@@ -118,9 +291,30 @@ This package uses [nanoid](https://github.com/ai/nanoid) for ID generation inste
 5. **Better Performance**: nanoid is optimized for performance and generates IDs faster than UUID v4.
 
 For example, with a 24-character nanoid:
-- The chance of a collision is approximately 1 in 2^128 (same as UUID v4)
-- The ID length is 24 characters + prefix length (e.g., `usr_abc123...`)
-- The alphabet includes 36 characters (0-9, a-z), making it both readable and compact
+- The chance of a collision is approximately 1 in 2^142 (even better than UUID v4's 2^122)
+- The ID length is 24 characters + prefix length (e.g., `usr_abc123DEF...`)
+- The alphabet includes 62 characters (0-9, a-z, A-Z), providing high entropy while remaining readable
+
+## Development
+
+### Running Tests
+
+This project includes comprehensive unit and integration tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run only unit tests (fast, no database)
+npm run test:unit
+
+# Run only integration tests (uses real SQLite database)
+npm run test:integration
+```
+
+The integration tests automatically download the Prisma query engine and set up a SQLite database as needed. No additional setup is required.
+
+For more detailed development information, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ## License
 

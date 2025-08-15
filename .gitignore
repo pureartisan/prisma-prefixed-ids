@@ -6,6 +6,11 @@ node_modules/
 # Testing
 coverage/
 
+# Prisma
+tests/client/
+!tests/db/.gitkeep
+tests/db/
+
 # Production
 dist/
 build/

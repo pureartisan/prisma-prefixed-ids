@@ -27,6 +27,8 @@
     "**/*.test.ts",
     "**/*.spec.ts",
     "dist/**/*",
-    "node_modules/**/*"
+    "node_modules/**/*",
+    "tests/client/**/*",
+    "tests/db/**/*"
   ]
 }

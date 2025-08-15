@@ -1,0 +1,72 @@
+// This is your Prisma schema file for integration tests
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../db/test.db"
+}
+
+model User {
+  id       String    @id
+  name     String
+  email    String?   @unique
+  posts    Post[]
+  comments Comment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Post {
+  id         String     @id
+  title      String
+  content    String?
+  published  Boolean    @default(false)
+  authorId   String
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categories Category[]
+  comments   Comment[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@map("posts")
+}
+
+model Category {
+  id    String @id
+  name  String @unique
+  posts Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Comment {
+  id      String  @id
+  content String
+  postId  String
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId String
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes   Like[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("comments")
+}
+
+model Like {
+  id        String  @id
+  type      String
+  commentId String
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("likes")
+}

@@ -756,17 +756,19 @@ describe("PrefixedIdsExtension", () => {
           data: {
             name: "Test User",
             posts: {
-              connectOrCreate: {
-                where: { id: "pst_123" },
-                create: {
-                  title: "New Post",
-                  categories: {
-                    create: {
-                      name: "New Category",
+              connectOrCreate: [
+                {
+                  where: { id: "pst_123" },
+                  create: {
+                    title: "New Post",
+                    categories: {
+                      create: {
+                        name: "New Category",
+                      },
                     },
                   },
-                },
-              },
+                }
+              ],
             },
           },
         },
@@ -776,9 +778,9 @@ describe("PrefixedIdsExtension", () => {
 
       expect(result.data).toBeDefined();
       expect(result.data.id).toMatch(/^usr_/);
-      expect(result.data.posts.connectOrCreate.create.id).toMatch(/^pst_/);
+      expect(result.data.posts.connectOrCreate[0].create.id).toMatch(/^pst_/);
       expect(
-        result.data.posts.connectOrCreate.create.categories.create.id,
+        result.data.posts.connectOrCreate[0].create.categories.create.id,
       ).toMatch(/^cat_/);
     });
 
@@ -1089,17 +1091,19 @@ describe("PrefixedIdsExtension", () => {
           data: {
             name: "New User",
             posts: {
-              connectOrCreate: {
-                where: { id: "pst_existing" },
-                create: {
-                  title: "New Post",
-                  comments: {
-                    create: {
-                      content: "Comment 1",
+              connectOrCreate: [
+                {
+                  where: { id: "pst_existing" },
+                  create: {
+                    title: "New Post",
+                    comments: {
+                      create: {
+                        content: "Comment 1",
+                      },
                     },
                   },
-                },
-              },
+                }
+              ],
             },
           },
         },
@@ -1109,9 +1113,9 @@ describe("PrefixedIdsExtension", () => {
 
       expect(result.data).toBeDefined();
       expect(result.data.id).toMatch(/^usr_/);
-      expect(result.data.posts.connectOrCreate.create.id).toMatch(/^pst_/);
+      expect(result.data.posts.connectOrCreate[0].create.id).toMatch(/^pst_/);
       expect(
-        result.data.posts.connectOrCreate.create.comments.create.id,
+        result.data.posts.connectOrCreate[0].create.comments.create.id,
       ).toMatch(/^cmt_/);
     });
 
@@ -1314,12 +1318,14 @@ describe("PrefixedIdsExtension", () => {
                 title: "Updated Post",
               },
             },
-            connectOrCreate: {
-              where: { id: "pst_123" },
-              create: {
-                title: "New Post",
-              },
-            },
+            connectOrCreate: [
+              {
+                where: { id: "pst_123" },
+                create: {
+                  title: "New Post",
+                },
+              }
+            ],
           },
         },
         "User" as ModelName,
@@ -1365,13 +1371,15 @@ describe("PrefixedIdsExtension", () => {
               title: "Updated Post",
             },
           },
-          connectOrCreate: {
-            where: { id: "pst_123" },
-            create: {
-              title: "New Post",
-              id: "pst_456",
-            },
-          },
+          connectOrCreate: [
+            {
+              where: { id: "pst_123" },
+              create: {
+                title: "New Post",
+                id: "pst_456",
+              },
+            }
+          ],
         },
       });
     });

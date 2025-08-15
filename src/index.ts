@@ -72,6 +72,7 @@ export const processNestedData = <T extends ModelName>(
   model: T,
   prefixedId: (model: T) => string | null,
   dmmf: any,
+  shouldAddRootId: boolean = true,
 ): any => {
   if (!data) {
     return data;
@@ -79,7 +80,7 @@ export const processNestedData = <T extends ModelName>(
 
   // Handle array of items
   if (Array.isArray(data)) {
-    return data.map((item) => processNestedData(item, model, prefixedId, dmmf));
+    return data.map((item) => processNestedData(item, model, prefixedId, dmmf, shouldAddRootId));
   }
 
   // Handle object
@@ -87,7 +88,7 @@ export const processNestedData = <T extends ModelName>(
     const result: any = { ...data };
 
     // Generate ID for the current model if needed (for nested creates)
-    if (!result.id) {
+    if (shouldAddRootId && !result.id) {
       const id = prefixedId(model);
       if (id) {
         result.id = id;
@@ -199,17 +200,24 @@ export const processNestedData = <T extends ModelName>(
               update: value[op].update, // Don't process update
             };
           } else if (op === "connectOrCreate") {
-            updatedValue[op] = {
-              ...value[op],
-              create: value[op].create
-                ? processNestedData(
-                    value[op].create,
-                    relatedModel as T,
-                    prefixedId,
-                    dmmf,
-                  )
-                : value[op].create,
-            };
+            // Special handling for connectOrCreate - it's an array where each item has where/create
+            if (Array.isArray(value[op])) {
+              updatedValue[op] = value[op].map((connectOrCreateItem: any) => ({
+                ...connectOrCreateItem,
+                create: connectOrCreateItem.create
+                  ? processNestedData(
+                      connectOrCreateItem.create,
+                      relatedModel as T,
+                      prefixedId,
+                      dmmf,
+                      true,
+                    )
+                  : connectOrCreateItem.create,
+              }));
+            } else {
+              // Fallback for non-array connectOrCreate (shouldn't happen in normal usage)
+              updatedValue[op] = value[op];
+            }
           } else if (op === "create" || op === "createMany") {
             // Only process create operations with ID generation
             updatedValue[op] = processNestedData(
@@ -265,7 +273,54 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 
   const createOperationHandler = (operation: string) => {
     return ({ args, query, model }: QueryArgs): Promise<any> => {
-      if (args.data) {
+      if (operation === "upsert") {
+        // For upsert operations, add ID to create branch only
+        if (args.create && !args.create.id) {
+          const id = prefixedId(model as ModelName);
+          if (id) {
+            args.create.id = id;
+          }
+        }
+        // Process nested data in both create and update branches
+        if (dmmf) {
+          if (args.create) {
+            args.create = processNestedData(
+              args.create,
+              model as ModelName,
+              prefixedId,
+              dmmf,
+              true,
+            );
+          }
+          if (args.update) {
+            args.update = processNestedData(
+              args.update,
+              model as ModelName,
+              prefixedId,
+              dmmf,
+              false,
+            );
+          }
+        }
+      } else if (operation === "connectOrCreate") {
+        // For connectOrCreate operations, add ID to create branch only
+        if (args.create && !args.create.id) {
+          const id = prefixedId(model as ModelName);
+          if (id) {
+            args.create.id = id;
+          }
+        }
+        // Process nested data in create branch
+        if (dmmf && args.create) {
+          args.create = processNestedData(
+            args.create,
+            model as ModelName,
+            prefixedId,
+            dmmf,
+            true,
+          );
+        }
+      } else if (args.data) {
         if (operation === "createMany") {
           // For createMany, data is an array
           if (Array.isArray(args.data)) {
@@ -294,6 +349,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
               model as ModelName,
               prefixedId,
               dmmf,
+              true,
             );
           }
         } else if (operation === "update" || operation === "updateMany") {
@@ -304,50 +360,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
               model as ModelName,
               prefixedId,
               dmmf,
-            );
-          }
-        } else if (operation === "upsert") {
-          // For upsert operations, add ID to create branch only
-          if (args.create && !args.create.id) {
-            const id = prefixedId(model as ModelName);
-            if (id) {
-              args.create.id = id;
-            }
-          }
-          // Process nested data in both create and update branches
-          if (dmmf) {
-            if (args.create) {
-              args.create = processNestedData(
-                args.create,
-                model as ModelName,
-                prefixedId,
-                dmmf,
-              );
-            }
-            if (args.update) {
-              args.update = processNestedData(
-                args.update,
-                model as ModelName,
-                prefixedId,
-                dmmf,
-              );
-            }
-          }
-        } else if (operation === "connectOrCreate") {
-          // For connectOrCreate operations, add ID to create branch only
-          if (args.create && !args.create.id) {
-            const id = prefixedId(model as ModelName);
-            if (id) {
-              args.create.id = id;
-            }
-          }
-          // Process nested data in create branch
-          if (dmmf && args.create) {
-            args.create = processNestedData(
-              args.create,
-              model as ModelName,
-              prefixedId,
-              dmmf,
+              false,
             );
           }
         }

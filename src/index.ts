@@ -80,7 +80,9 @@ export const processNestedData = <T extends ModelName>(
 
   // Handle array of items
   if (Array.isArray(data)) {
-    return data.map((item) => processNestedData(item, model, prefixedId, dmmf, shouldAddRootId));
+    return data.map((item) =>
+      processNestedData(item, model, prefixedId, dmmf, shouldAddRootId),
+    );
   }
 
   // Handle object
@@ -401,15 +403,17 @@ export function extendPrismaClient<
 export function getDMMF(clientOrContext: PrismaClient | any): any {
   // Try newer structure first (_runtimeDataModel)
   if ((clientOrContext as any)._runtimeDataModel) {
-    const modelsEntries = Object.entries((clientOrContext as any)._runtimeDataModel.models);
-    
+    const modelsEntries = Object.entries(
+      (clientOrContext as any)._runtimeDataModel.models,
+    );
+
     return {
       datamodel: {
         models: modelsEntries.map(([name, model]: [string, any]) => ({
           name: name,
           fields: model.fields.map((field: any) => ({
             name: field.name,
-            kind: field.relationName ? 'object' : 'scalar',
+            kind: field.relationName ? "object" : "scalar",
             type: field.type,
             isList: field.isList,
           })),
@@ -417,7 +421,7 @@ export function getDMMF(clientOrContext: PrismaClient | any): any {
       },
     };
   }
-  
+
   // Fallback to older structures
   return (
     (clientOrContext as any)._baseDmmf ||

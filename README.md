@@ -37,6 +37,11 @@ const prefixes: Partial<Record<ModelName, string>> = {
 const extendedPrisma = extendPrismaClient(prisma, {
   prefixes,
 });
+// NOTE: if typing is an issue, simply override the 
+// return type to be the original `PrismaClient`:
+// const extendedPrisma = extendPrismaClient(prisma, {
+//    prefixes,
+// }) as unknown as PrismaClient
 
 // Use the extended client
 const organization = await extendedPrisma.organization.create({

@@ -13,22 +13,21 @@ jest.mock('nanoid', () => ({
 // Integration tests with real SQLite database
 describe('Integration Tests - Prisma Prefixed IDs', () => {
   let prisma: PrismaClient;
-  let extendedPrisma: ReturnType<typeof extendPrismaClient>;
+  let extendedPrisma: ReturnType<typeof extendPrismaClient<any>>;
   const testRunId = Date.now().toString();
 
   beforeAll(async () => {
     prisma = new PrismaClient();
     await prisma.$connect();
-    
-    
+
     // Extend Prisma client with prefixed IDs after connection
     extendedPrisma = extendPrismaClient(prisma, {
       prefixes: {
-        User: 'usr',
-        Post: 'pst',
-        Category: 'cat',
-        Comment: 'cmt',
-        Like: 'lik',
+        User: "usr",
+        Post: "pst",
+        Category: "cat",
+        Comment: "cmt",
+        Like: "lik",
       },
     });
   });

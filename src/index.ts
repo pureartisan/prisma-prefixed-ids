@@ -389,12 +389,11 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 export function extendPrismaClient<
   ModelName extends string = string,
   Client extends PrismaClient = PrismaClient,
->(
-  prisma: Client,
-  config: PrefixConfig<ModelName>,
-): Client {
+>(prisma: Client, config: PrefixConfig<ModelName>): Client {
   const dmmf = getDMMF(prisma);
-  return (prisma as any).$extends(createPrefixedIdsExtension(config, dmmf)) as Client;
+  return (prisma as any).$extends(
+    createPrefixedIdsExtension(config, dmmf),
+  ) as Client;
 }
 
 // Helper function to get DMMF from a Prisma Client instance or query context

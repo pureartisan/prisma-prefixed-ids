@@ -612,4 +612,467 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
       });
     });
   });
+
+  describe("Manual ID Preservation", () => {
+    it("should preserve manually set ID in create operation", async () => {
+      const user = await extendedPrisma.user.create({
+        data: {
+          id: "my_custom_user_id",
+          name: `Custom User ${testRunId}`,
+          email: `custom-${testRunId}@example.com`,
+        },
+      });
+
+      expect(user.id).toBe("my_custom_user_id");
+      expect(user.name).toBe(`Custom User ${testRunId}`);
+      expect(user.email).toBe(`custom-${testRunId}@example.com`);
+
+      // Verify it exists in database with custom ID
+      const foundUser = await prisma.user.findUnique({
+        where: { id: "my_custom_user_id" },
+      });
+      expect(foundUser).not.toBeNull();
+      expect(foundUser!.id).toBe("my_custom_user_id");
+    });
+
+    it("should preserve manually set IDs in createMany operation", async () => {
+      const result = await extendedPrisma.user.createMany({
+        data: [
+          {
+            id: "manual_id_1",
+            name: `Manual User 1 ${testRunId}`,
+            email: `manual1-${testRunId}@example.com`,
+          },
+          {
+            name: `Auto User 2 ${testRunId}`,
+            email: `auto2-${testRunId}@example.com`,
+          },
+          {
+            id: "manual_id_3",
+            name: `Manual User 3 ${testRunId}`,
+            email: `manual3-${testRunId}@example.com`,
+          },
+        ],
+      });
+
+      expect(result.count).toBe(3);
+
+      // Verify manual IDs were preserved
+      const manualUser1 = await prisma.user.findUnique({
+        where: { id: "manual_id_1" },
+      });
+      expect(manualUser1).not.toBeNull();
+      expect(manualUser1!.name).toBe(`Manual User 1 ${testRunId}`);
+
+      const manualUser3 = await prisma.user.findUnique({
+        where: { id: "manual_id_3" },
+      });
+      expect(manualUser3).not.toBeNull();
+      expect(manualUser3!.name).toBe(`Manual User 3 ${testRunId}`);
+
+      // Verify auto-generated ID has correct prefix
+      const autoUser = await prisma.user.findUnique({
+        where: { email: `auto2-${testRunId}@example.com` },
+      });
+      expect(autoUser).not.toBeNull();
+      expect(autoUser!.id).toMatch(/^usr_/);
+    });
+
+    it("should preserve manually set ID in upsert create branch", async () => {
+      const user = await extendedPrisma.user.upsert({
+        where: { email: `upsert-manual-${testRunId}@example.com` },
+        create: {
+          id: "my_upsert_manual_id",
+          name: `Upsert Manual User ${testRunId}`,
+          email: `upsert-manual-${testRunId}@example.com`,
+        },
+        update: {
+          name: "Should not be used",
+        },
+      });
+
+      expect(user.id).toBe("my_upsert_manual_id");
+      expect(user.name).toBe(`Upsert Manual User ${testRunId}`);
+
+      // Verify it exists in database
+      const foundUser = await prisma.user.findUnique({
+        where: { id: "my_upsert_manual_id" },
+      });
+      expect(foundUser).not.toBeNull();
+    });
+
+    it("should preserve manually set IDs in deeply nested create operations", async () => {
+      const complexUser = await extendedPrisma.user.create({
+        data: {
+          id: "manual_user_complex",
+          name: `Complex Manual User ${testRunId}`,
+          email: `complex-manual-${testRunId}@example.com`,
+          posts: {
+            create: {
+              id: "manual_post_id",
+              title: "Manual Post Title",
+              content: "This post has a manual ID",
+              published: true,
+              categories: {
+                create: [
+                  {
+                    id: "manual_category_1",
+                    name: "Manual Category 1",
+                  },
+                  {
+                    name: "Auto Category 2", // This should get auto-generated ID
+                  },
+                ],
+              },
+              comments: {
+                create: {
+                  id: "manual_comment_id",
+                  content: "Manual comment with manual ID",
+                  author: {
+                    create: {
+                      id: "manual_comment_author",
+                      name: "Manual Comment Author",
+                      email: `comment-author-manual-${testRunId}@example.com`,
+                    },
+                  },
+                  likes: {
+                    create: [
+                      {
+                        id: "manual_like_1",
+                        type: "like",
+                      },
+                      {
+                        type: "love", // Auto-generated ID
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        include: {
+          posts: {
+            include: {
+              categories: true,
+              comments: {
+                include: {
+                  author: true,
+                  likes: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Verify all manual IDs were preserved
+      expect(complexUser.id).toBe("manual_user_complex");
+
+      const post = complexUser.posts[0];
+      expect(post.id).toBe("manual_post_id");
+
+      const manualCategory = post.categories.find(
+        (cat: any) => cat.id === "manual_category_1",
+      );
+      expect(manualCategory).toBeDefined();
+      expect(manualCategory!.name).toBe("Manual Category 1");
+
+      const autoCategory = post.categories.find(
+        (cat: any) => cat.id !== "manual_category_1",
+      );
+      expect(autoCategory).toBeDefined();
+      expect(autoCategory!.id).toMatch(/^cat_/);
+
+      const comment = post.comments[0];
+      expect(comment.id).toBe("manual_comment_id");
+      expect(comment.author.id).toBe("manual_comment_author");
+
+      const manualLike = comment.likes.find(
+        (like: any) => like.id === "manual_like_1",
+      );
+      expect(manualLike).toBeDefined();
+      expect(manualLike!.type).toBe("like");
+
+      const autoLike = comment.likes.find(
+        (like: any) => like.id !== "manual_like_1",
+      );
+      expect(autoLike).toBeDefined();
+      expect(autoLike!.id).toMatch(/^lik_/);
+
+      // Verify all data exists in database with correct IDs
+      const dbUser = await prisma.user.findUnique({
+        where: { id: "manual_user_complex" },
+      });
+      expect(dbUser).not.toBeNull();
+
+      const dbPost = await prisma.post.findUnique({
+        where: { id: "manual_post_id" },
+      });
+      expect(dbPost).not.toBeNull();
+
+      const dbCategory = await prisma.category.findUnique({
+        where: { id: "manual_category_1" },
+      });
+      expect(dbCategory).not.toBeNull();
+
+      const dbComment = await prisma.comment.findUnique({
+        where: { id: "manual_comment_id" },
+      });
+      expect(dbComment).not.toBeNull();
+
+      const dbCommentAuthor = await prisma.user.findUnique({
+        where: { id: "manual_comment_author" },
+      });
+      expect(dbCommentAuthor).not.toBeNull();
+
+      const dbLike = await prisma.like.findUnique({
+        where: { id: "manual_like_1" },
+      });
+      expect(dbLike).not.toBeNull();
+    });
+
+    it("should preserve manually set IDs in createMany nested operations", async () => {
+      const user = await extendedPrisma.user.create({
+        data: {
+          id: "user_with_many_posts",
+          name: `User with Many Posts ${testRunId}`,
+          email: `many-posts-${testRunId}@example.com`,
+          posts: {
+            createMany: {
+              data: [
+                {
+                  id: "manual_post_1",
+                  title: "Manual Post 1",
+                  content: "First manual post",
+                },
+                {
+                  title: "Auto Post 2",
+                  content: "Second auto post",
+                },
+                {
+                  id: "manual_post_3",
+                  title: "Manual Post 3",
+                  content: "Third manual post",
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      expect(user.id).toBe("user_with_many_posts");
+
+      // Verify manual IDs were preserved in database
+      const manualPost1 = await prisma.post.findUnique({
+        where: { id: "manual_post_1" },
+      });
+      expect(manualPost1).not.toBeNull();
+      expect(manualPost1!.title).toBe("Manual Post 1");
+      expect(manualPost1!.authorId).toBe("user_with_many_posts");
+
+      const manualPost3 = await prisma.post.findUnique({
+        where: { id: "manual_post_3" },
+      });
+      expect(manualPost3).not.toBeNull();
+      expect(manualPost3!.title).toBe("Manual Post 3");
+      expect(manualPost3!.authorId).toBe("user_with_many_posts");
+
+      // Verify auto-generated post has correct prefix
+      const allPosts = await prisma.post.findMany({
+        where: { authorId: "user_with_many_posts" },
+      });
+      expect(allPosts).toHaveLength(3);
+
+      const autoPost = allPosts.find(
+        (post) => post.id !== "manual_post_1" && post.id !== "manual_post_3",
+      );
+      expect(autoPost).toBeDefined();
+      expect(autoPost!.id).toMatch(/^pst_/);
+      expect(autoPost!.title).toBe("Auto Post 2");
+    });
+
+    it("should preserve manually set IDs in update operations with nested creates", async () => {
+      // First create a user
+      const user = await extendedPrisma.user.create({
+        data: {
+          id: "user_for_update_test",
+          name: `Update Test User ${testRunId}`,
+          email: `update-test-${testRunId}@example.com`,
+        },
+      });
+
+      // Then update with nested creates that have manual IDs
+      const updatedUser = await extendedPrisma.user.update({
+        where: { id: "user_for_update_test" },
+        data: {
+          name: "Updated User Name",
+          posts: {
+            create: [
+              {
+                id: "manual_update_post_1",
+                title: "Manual Update Post 1",
+                content: "First manual update post",
+              },
+              {
+                title: "Auto Update Post 2",
+                content: "Second auto update post",
+              },
+            ],
+          },
+        },
+        include: {
+          posts: true,
+        },
+      });
+
+      expect(updatedUser.id).toBe("user_for_update_test");
+      expect(updatedUser.name).toBe("Updated User Name");
+      expect(updatedUser.posts).toHaveLength(2);
+
+      // Verify manual ID was preserved
+      const manualPost = updatedUser.posts.find(
+        (post: any) => post.id === "manual_update_post_1",
+      );
+      expect(manualPost).toBeDefined();
+      expect(manualPost!.title).toBe("Manual Update Post 1");
+
+      // Verify auto-generated ID has correct prefix
+      const autoPost = updatedUser.posts.find(
+        (post: any) => post.id !== "manual_update_post_1",
+      );
+      expect(autoPost).toBeDefined();
+      expect(autoPost!.id).toMatch(/^pst_/);
+      expect(autoPost!.title).toBe("Auto Update Post 2");
+
+      // Verify in database
+      const dbManualPost = await prisma.post.findUnique({
+        where: { id: "manual_update_post_1" },
+      });
+      expect(dbManualPost).not.toBeNull();
+      expect(dbManualPost!.authorId).toBe("user_for_update_test");
+    });
+
+    it("should handle edge cases with different ID types", async () => {
+      // Test with numeric-like string ID
+      const user1 = await extendedPrisma.user.create({
+        data: {
+          id: "123456",
+          name: `Numeric-like ID User ${testRunId}`,
+          email: `numeric-${testRunId}@example.com`,
+        },
+      });
+
+      expect(user1.id).toBe("123456");
+
+      // Test with special characters
+      const user2 = await extendedPrisma.user.create({
+        data: {
+          id: "special_id_test-123",
+          name: `Edge Case User ${testRunId}`,
+          email: `edge-${testRunId}@example.com`,
+        },
+      });
+
+      expect(user2.id).toBe("special_id_test-123");
+
+      // Verify both exist in database
+      const dbUser1 = await prisma.user.findUnique({ where: { id: "123456" } });
+      expect(dbUser1).not.toBeNull();
+
+      const dbUser2 = await prisma.user.findUnique({
+        where: { id: "special_id_test-123" },
+      });
+      expect(dbUser2).not.toBeNull();
+    });
+
+    it("should work correctly in mixed scenarios with auto and manual IDs", async () => {
+      const user = await extendedPrisma.user.create({
+        data: {
+          name: `Mixed Scenario User ${testRunId}`, // Auto-generated user ID
+          email: `mixed-${testRunId}@example.com`,
+          posts: {
+            create: [
+              {
+                id: "manual_mixed_post_1",
+                title: "Manual Post in Mixed Scenario",
+                content: "This post has manual ID",
+                categories: {
+                  create: [
+                    {
+                      name: "Auto Category in Mixed", // Auto-generated category ID
+                    },
+                    {
+                      id: "manual_mixed_category",
+                      name: "Manual Category in Mixed",
+                    },
+                  ],
+                },
+              },
+              {
+                title: "Auto Post in Mixed Scenario", // Auto-generated post ID
+                content: "This post has auto ID",
+              },
+            ],
+          },
+        },
+        include: {
+          posts: {
+            include: {
+              categories: true,
+            },
+          },
+        },
+      });
+
+      // Verify user got auto-generated ID
+      expect(user.id).toMatch(/^usr_/);
+      expect(user.posts).toHaveLength(2);
+
+      // Find manual and auto posts
+      const manualPost = user.posts.find(
+        (post: any) => post.id === "manual_mixed_post_1",
+      );
+      const autoPost = user.posts.find(
+        (post: any) => post.id !== "manual_mixed_post_1",
+      );
+
+      expect(manualPost).toBeDefined();
+      expect(manualPost!.title).toBe("Manual Post in Mixed Scenario");
+
+      expect(autoPost).toBeDefined();
+      expect(autoPost!.id).toMatch(/^pst_/);
+      expect(autoPost!.title).toBe("Auto Post in Mixed Scenario");
+
+      // Verify categories
+      expect(manualPost!.categories).toHaveLength(2);
+      const manualCategory = manualPost!.categories.find(
+        (cat: any) => cat.id === "manual_mixed_category",
+      );
+      const autoCategory = manualPost!.categories.find(
+        (cat: any) => cat.id !== "manual_mixed_category",
+      );
+
+      expect(manualCategory).toBeDefined();
+      expect(manualCategory!.name).toBe("Manual Category in Mixed");
+
+      expect(autoCategory).toBeDefined();
+      expect(autoCategory!.id).toMatch(/^cat_/);
+      expect(autoCategory!.name).toBe("Auto Category in Mixed");
+
+      // Verify all exists in database
+      const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(dbUser).not.toBeNull();
+
+      const dbManualPost = await prisma.post.findUnique({
+        where: { id: "manual_mixed_post_1" },
+      });
+      expect(dbManualPost).not.toBeNull();
+
+      const dbManualCategory = await prisma.category.findUnique({
+        where: { id: "manual_mixed_category" },
+      });
+      expect(dbManualCategory).not.toBeNull();
+    });
+  });
 });

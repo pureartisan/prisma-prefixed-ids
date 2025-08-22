@@ -320,6 +320,381 @@ describe("PrefixedIdsExtension", () => {
     });
   });
 
+  describe("Manual ID Preservation", () => {
+    it("should preserve manually set ID in create operation", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: "my_custom_id",
+            name: "Test User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toBe("my_custom_id");
+      expect(result.data.name).toBe("Test User");
+    });
+
+    it("should preserve manually set ID in createMany operation", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.createMany({
+        args: {
+          data: [
+            { id: "custom_id_1", name: "User 1" },
+            { name: "User 2" },
+            { id: "custom_id_3", name: "User 3" },
+          ],
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data).toHaveLength(3);
+      expect(result.data[0].id).toBe("custom_id_1");
+      expect(result.data[1].id).toMatch(/^usr_/);
+      expect(result.data[2].id).toBe("custom_id_3");
+    });
+
+    it("should preserve manually set ID in upsert create branch", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.upsert({
+        args: {
+          where: { email: "test@example.com" },
+          create: {
+            id: "my_upsert_id",
+            name: "Upsert User",
+            email: "test@example.com",
+          },
+          update: {
+            name: "Updated User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.create.id).toBe("my_upsert_id");
+      expect(result.create.name).toBe("Upsert User");
+    });
+
+    it("should preserve manually set ID in connectOrCreate create branch", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.connectOrCreate({
+        args: {
+          where: { email: "test@example.com" },
+          create: {
+            id: "my_connect_or_create_id",
+            name: "ConnectOrCreate User",
+            email: "test@example.com",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.create.id).toBe("my_connect_or_create_id");
+    });
+
+    it("should preserve manually set IDs in nested create operations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+            Category: "cat",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: "my_user_id",
+            name: "Test User",
+            posts: {
+              create: [
+                {
+                  id: "my_post_id_1",
+                  title: "Custom Post 1",
+                  categories: {
+                    create: {
+                      id: "my_category_id",
+                      name: "Custom Category",
+                    },
+                  },
+                },
+                {
+                  title: "Auto-generated Post",
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toBe("my_user_id");
+      expect(result.data.posts.create[0].id).toBe("my_post_id_1");
+      expect(result.data.posts.create[0].categories.create.id).toBe("my_category_id");
+      expect(result.data.posts.create[1].id).toMatch(/^pst_/);
+    });
+
+    it("should preserve manually set IDs in nested createMany operations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: "my_user_id",
+            name: "Test User",
+            posts: {
+              createMany: {
+                data: [
+                  { id: "my_post_1", title: "Custom Post 1" },
+                  { title: "Auto Post 2" },
+                  { id: "my_post_3", title: "Custom Post 3" },
+                ],
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toBe("my_user_id");
+      expect(result.data.posts.createMany.data[0].id).toBe("my_post_1");
+      expect(result.data.posts.createMany.data[1].id).toMatch(/^pst_/);
+      expect(result.data.posts.createMany.data[2].id).toBe("my_post_3");
+    });
+
+    it("should preserve manually set IDs in nested upsert operations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              upsert: {
+                where: { id: "existing_post" },
+                create: {
+                  id: "my_upsert_post",
+                  title: "Custom Upsert Post",
+                },
+                update: {
+                  title: "Updated Post",
+                },
+              },
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.upsert.create.id).toBe("my_upsert_post");
+    });
+
+    it("should preserve manually set IDs in nested connectOrCreate operations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              connectOrCreate: [
+                {
+                  where: { id: "existing_post" },
+                  create: {
+                    id: "my_connect_create_post",
+                    title: "Custom ConnectOrCreate Post",
+                  },
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(result.data.posts.connectOrCreate[0].create.id).toBe("my_connect_create_post");
+    });
+
+    it("should preserve manually set IDs in update operations with nested creates", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.update({
+        args: {
+          where: { id: "existing_user" },
+          data: {
+            posts: {
+              create: [
+                {
+                  id: "my_update_post_1",
+                  title: "Custom Update Post 1",
+                },
+                {
+                  title: "Auto Update Post 2",
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.posts.create[0].id).toBe("my_update_post_1");
+      expect(result.data.posts.create[1].id).toMatch(/^pst_/);
+    });
+
+    it("should preserve manually set IDs with mixed data types", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: 123, // Numeric ID
+            name: "Test User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toBe(123);
+    });
+
+    it("should treat empty string ID as missing and generate prefixed ID", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: "", // Empty string ID is treated as falsy
+            name: "Test User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toMatch(/^usr_/);
+    });
+
+    it("should treat zero as missing ID and generate prefixed ID", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            id: 0, // Zero ID is treated as falsy
+            name: "Test User",
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toMatch(/^usr_/);
+    });
+  });
+
   describe("extendPrismaClient", () => {
     it("should extend the Prisma client with the extension", () => {
       const extendedPrisma = extendPrismaClient(prisma, {

@@ -20,13 +20,13 @@
     "url": "https://github.com/pureartisan/prisma-prefixed-ids"
   },
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "shx rm -rf dist",
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "build:esm": "tsc -p tsconfig.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json && mv dist/cjs/index.js dist/index.cjs && rm -rf dist/cjs",
+    "build:cjs": "tsc -p tsconfig.cjs.json && shx mv dist/cjs/index.js dist/index.cjs && shx rm -rf dist/cjs",
     "prepare": "npm run build",
     "postinstall": "npm run clean:test-artifacts",
-    "clean:test-artifacts": "rm -rf test-client prisma/test.db prisma/test.db-journal",
+    "clean:test-artifacts": "shx rm -rf test-client && shx rm -f prisma/test.db prisma/test.db-journal",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --testPathIgnorePatterns=integration",
     "test:integration": "npm run db:setup && jest --testPathPattern=integration",
@@ -57,8 +57,8 @@
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
-    "@types/node": "^20.0.0",
     "@types/nanoid": "^2.0.0",
+    "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.56.0",
@@ -66,6 +66,7 @@
     "jest": "^29.0.0",
     "prettier": "^3.0.0",
     "prisma": "^5.0.0",
+    "shx": "^0.4.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },

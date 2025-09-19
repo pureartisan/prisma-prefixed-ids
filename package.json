@@ -25,7 +25,6 @@
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json && mv dist/cjs/index.js dist/index.cjs && rm -rf dist/cjs",
     "prepare": "npm run build",
-    "postinstall": "npm run clean:test-artifacts",
     "clean:test-artifacts": "rm -rf test-client prisma/test.db prisma/test.db-journal",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --testPathIgnorePatterns=integration",

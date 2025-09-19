@@ -1,6 +1,6 @@
 {
   "name": "prisma-prefixed-ids",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "A Prisma extension that adds prefixed IDs to your models",
   "type": "module",
   "main": "./dist/index.js",

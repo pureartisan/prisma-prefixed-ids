@@ -35,16 +35,13 @@ jobs:
     - name: Build
       run: npm run build
 
-    - name: Set up test database
+    - name: Generate Prisma clients for TypeScript compilation
       run: |
-        mkdir -p tests/db
-        npx prisma generate --schema=tests/prisma/schema.prisma
-        npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
         # Generate MySQL and PostgreSQL clients for TypeScript compilation (tests won't run without DATABASE_URL)
         npx prisma generate --schema=tests/prisma/schema.mysql.prisma || true
         npx prisma generate --schema=tests/prisma/schema.postgres.prisma || true
 
-    - name: Run tests with coverage
+    - name: Run unit tests with coverage
       run: npm run test:coverage
 
   mysql-tests:
@@ -64,17 +61,13 @@ jobs:
           --health-timeout=5s
           --health-retries=3
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
     - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 20.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 20.x
         cache: 'npm'
 
     - name: Install dependencies
@@ -110,17 +103,13 @@ jobs:
           --health-timeout=5s
           --health-retries=3
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
     - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 20.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 20.x
         cache: 'npm'
 
     - name: Install dependencies
@@ -136,4 +125,28 @@ jobs:
     - name: Run PostgreSQL integration tests
       env:
         DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/testdb
-      run: npm run test:postgres 
+      run: npm run test:postgres
+
+  sqlite-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Set up SQLite test database
+      run: |
+        mkdir -p tests/db
+        npx prisma generate --schema=tests/prisma/schema.prisma
+        npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
+
+    - name: Run SQLite integration tests
+      run: npm run test:integration 

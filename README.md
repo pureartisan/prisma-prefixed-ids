@@ -14,6 +14,8 @@ npm install prisma-prefixed-ids
 
 ## Usage
 
+### Object-Based Prefixes (Simple Configuration)
+
 ```typescript
 import { type Prisma, PrismaClient } from "@prisma/client";
 import { extendPrismaClient } from 'prisma-prefixed-ids';
@@ -26,7 +28,7 @@ type ModelName = Prisma.ModelName;
 // Create your Prisma client
 const prisma = new PrismaClient();
 
-// Define your model prefixes
+// Define your model prefixes as an object
 const prefixes: Partial<Record<ModelName, string>> = {
   Organization: 'org',
   User: 'usr',
@@ -53,6 +55,63 @@ const organization = await extendedPrisma.organization.create({
 
 console.log(organization.id); // e.g., 'org_abc123...'
 ```
+
+### Function-Based Prefixes (Dynamic Configuration)
+
+You can also use a function to determine prefixes dynamically. This is useful when you need conditional logic or want to compute prefixes based on the model name:
+
+```typescript
+import { type Prisma, PrismaClient } from "@prisma/client";
+import { extendPrismaClient } from 'prisma-prefixed-ids';
+
+type ModelName = Prisma.ModelName;
+
+const prisma = new PrismaClient();
+
+// Define prefixes using a function
+const extendedPrisma = extendPrismaClient(prisma, {
+  prefixes: (modelName: ModelName): string | null => {
+    // Return prefix for known models, null for unknown models
+    switch (modelName) {
+      case 'Organization':
+        return 'org';
+      case 'User':
+        return 'usr';
+      case 'Post':
+        return 'pst';
+      case 'Comment':
+        return 'cmt';
+      default:
+        return null; // No prefix for unknown models
+    }
+  },
+});
+
+// Or use a more dynamic approach
+const extendedPrismaDynamic = extendPrismaClient(prisma, {
+  prefixes: (modelName: ModelName): string | null => {
+    // Convert model name to lowercase prefix
+    const prefix = modelName.toLowerCase().slice(0, 3);
+    // Only apply to certain models
+    const allowedModels = ['User', 'Post', 'Comment'];
+    return allowedModels.includes(modelName) ? prefix : null;
+  },
+});
+
+// Use the extended client
+const user = await extendedPrisma.user.create({
+  data: {
+    name: 'John Doe',
+    // id will be automatically generated with prefix 'usr_'
+  },
+});
+
+console.log(user.id); // e.g., 'usr_abc123...'
+```
+
+**Note:** When using function-based prefixes, return `null` for models that should not have prefixed IDs. The extension will skip ID generation for those models.
+
+**Backward Compatibility:** The function-based prefix feature is fully backward compatible. Existing code using object-based prefixes will continue to work without any changes.
 
 ## Nested Writes Support (v1.5.0+)
 
@@ -241,10 +300,21 @@ const customIdGenerator = (prefix: string) => {
   return `${prefix}_${nanoid()}`;
 };
 
+// With object-based prefixes
 const extendedPrisma = extendPrismaClient(prisma, {
   prefixes: {
     Organization: 'org',
     User: 'usr',
+  },
+  idGenerator: customIdGenerator,
+});
+
+// With function-based prefixes
+const extendedPrismaWithFunction = extendPrismaClient(prisma, {
+  prefixes: (modelName) => {
+    if (modelName === 'Organization') return 'org';
+    if (modelName === 'User') return 'usr';
+    return null;
   },
   idGenerator: customIdGenerator,
 });
@@ -254,12 +324,16 @@ const extendedPrisma = extendPrismaClient(prisma, {
 
 The extension accepts the following configuration:
 
-- `prefixes`: A record mapping model names to their prefixes (required)
+- `prefixes`: Either an object mapping model names to prefixes, or a function that returns a prefix for a given model name (required)
 - `idGenerator`: A function that generates IDs (optional, defaults to using nanoid)
 
 ### Prefixes Configuration
 
-The `prefixes` configuration is a simple object where:
+The `prefixes` configuration can be provided in two ways:
+
+#### Option 1: Object-Based (Simple)
+
+A simple object where:
 - Keys are your Prisma model names (case sensitive)
 - Values are the prefixes you want to use (without the underscore, which is added automatically)
 
@@ -272,6 +346,45 @@ const prefixes = {
   Comment: 'cmt',
 };
 ```
+
+#### Option 2: Function-Based (Dynamic)
+
+A function that takes a model name and returns a prefix string or `null`:
+- Accepts `modelName: ModelName` as parameter
+- Returns `string | null`:
+  - Returns a `string` prefix for models that should have prefixed IDs
+  - Returns `null` for models that should not have prefixed IDs
+
+Example:
+```typescript
+const prefixes = (modelName: ModelName): string | null => {
+  // Simple mapping
+  const prefixMap: Record<string, string> = {
+    Organization: 'org',
+    User: 'usr',
+    Post: 'pst',
+    Comment: 'cmt',
+  };
+  return prefixMap[modelName] ?? null;
+};
+
+// Or with conditional logic
+const prefixes = (modelName: ModelName): string | null => {
+  if (modelName.startsWith('System')) {
+    return 'sys'; // All system models get 'sys' prefix
+  }
+  if (modelName === 'User' || modelName === 'Organization') {
+    return modelName.toLowerCase().slice(0, 3);
+  }
+  return null; // Other models get no prefix
+};
+```
+
+**When to use function-based prefixes:**
+- You need conditional logic based on model names
+- You want to compute prefixes dynamically
+- You have a large number of models and want to avoid maintaining a large object
+- You need to apply prefixes based on naming patterns or conventions
 
 ### ID Generator Function
 

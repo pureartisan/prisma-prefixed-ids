@@ -8,6 +8,7 @@ coverage/
 
 # Prisma
 tests/client/
+tests/client-mysql/
 !tests/db/.gitkeep
 tests/db/
 
@@ -19,6 +20,7 @@ build/
 .DS_Store
 .env
 .env.local
+.env.testing
 .env.development.local
 .env.test.local
 .env.production.local

@@ -20,6 +20,15 @@ npm run test:integration
 - Automatically downloads Prisma query engine and sets up database
 - Tests end-to-end functionality with actual database operations
 
+### MySQL Integration Tests
+```bash
+npm run test:mysql
+```
+- Real database tests using MySQL
+- Requires `DATABASE_URL` environment variable to be set
+- Tests specific scenarios like nested create with arrays (createMany in disguise)
+- Example: `DATABASE_URL="mysql://user:password@localhost:3306/testdb" npm run test:mysql`
+
 ### Run All Tests
 ```bash
 npm test
@@ -37,6 +46,7 @@ These files are excluded from git and created on-demand to keep the repository l
 
 ## Manual Database Commands
 
+### SQLite (default)
 ```bash
 # Generate Prisma client for tests
 npm run db:generate
@@ -50,6 +60,20 @@ npm run db:reset
 # Setup everything (generate + push)
 npm run db:setup
 ```
+
+### MySQL
+```bash
+# Generate Prisma client for MySQL tests
+npm run db:generate:mysql
+
+# Push schema to MySQL database
+npm run db:push:mysql
+
+# Setup everything (generate + push)
+npm run db:setup:mysql
+```
+
+**Note**: MySQL tests require the `DATABASE_URL` environment variable to be set with a valid MySQL connection string.
 
 ## CI/CD Considerations
 

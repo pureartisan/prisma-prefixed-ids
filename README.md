@@ -383,9 +383,12 @@ npm run test:integration:mysql
 
 The test setup automatically:
 - ✅ Detects the database provider from `.env.testing` (SQLite, PostgreSQL, or MySQL)
+- ✅ Generates schema with correct provider from template
 - ✅ Resets the database before running tests
 - ✅ Generates the Prisma client with the correct provider
 - ✅ Cleans up test data between tests
+
+> **Implementation Note**: Since Prisma doesn't support `env()` for the provider field, we use a template approach where `schema.prisma` contains `provider = "__PROVIDER__"` which gets replaced at test time.
 
 #### CI/CD Configuration
 

@@ -96,11 +96,11 @@ const generatedSchemaPath = path.resolve(__dirname, 'prisma', '.schema.generated
 
 console.log('\n📝 Generating schema with provider:', dbProvider);
 
-// Read base schema and replace provider
+// Read base schema template and replace __PROVIDER__ placeholder
 const baseSchema = fs.readFileSync(baseSchemaPath, 'utf-8');
 const generatedSchema = baseSchema.replace(
-  /provider\s*=\s*"sqlite"/,
-  `provider = "${dbProvider}"`
+  /__PROVIDER__/g,
+  dbProvider
 );
 fs.writeFileSync(generatedSchemaPath, generatedSchema);
 

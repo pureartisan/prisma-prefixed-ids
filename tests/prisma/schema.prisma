@@ -1,4 +1,6 @@
 // This is your Prisma schema file for integration tests
+// NOTE: The provider field will be dynamically replaced by tests/setup-db.mjs
+// based on TEST_DATABASE_PROVIDER environment variable
 
 generator client {
   provider = "prisma-client-js"
@@ -6,8 +8,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:../db/test.db"
+  provider = "__PROVIDER__"
+  url      = env("TEST_DATABASE_URL")
 }
 
 model User {

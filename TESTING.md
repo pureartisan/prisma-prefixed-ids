@@ -90,7 +90,10 @@ The database setup is handled automatically by `tests/setup-db.mjs`:
 4. **Generate Prisma Client** with correct provider
 5. **Push schema** to database
 
-> **Note**: The test setup uses a single `schema.prisma` file and dynamically generates a `.schema.generated.prisma` with the correct provider. This avoids maintaining multiple schema files.
+> **Note**: Prisma doesn't support `env("PROVIDER")` in the datasource provider field. As a workaround, we use a template approach:
+> - `schema.prisma` contains `provider = "__PROVIDER__"` as a placeholder
+> - `setup-db.mjs` generates `.schema.generated.prisma` with the actual provider
+> - This keeps maintenance simple with just one source schema file
 
 ### Manual Database Setup
 

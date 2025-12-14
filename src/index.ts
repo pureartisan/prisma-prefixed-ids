@@ -5,7 +5,9 @@ import { customAlphabet } from "nanoid";
 export type ModelName = string;
 
 export type PrefixConfig<ModelName extends string> = {
-  prefixes: Partial<Record<ModelName, string>>;
+  prefixes:
+    | Partial<Record<ModelName, string>>
+    | ((modelName: ModelName) => string | null);
   idGenerator?: (prefix: string) => string;
 };
 
@@ -267,6 +269,15 @@ export function createPrefixedIdsExtension<ModelName extends string>(
   const { prefixes, idGenerator = defaultIdGenerator } = config;
 
   const prefixedId = (modelName: ModelName): string | null => {
+    // Check if prefixes is a function
+    if (typeof prefixes === "function") {
+      const prefix = prefixes(modelName);
+      if (prefix === null) {
+        return null;
+      }
+      return idGenerator(prefix);
+    }
+    // Otherwise, treat it as an object/map
     if (modelName in prefixes) {
       return idGenerator(prefixes[modelName] as string);
     }

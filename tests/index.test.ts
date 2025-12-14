@@ -318,6 +318,191 @@ describe("PrefixedIdsExtension", () => {
       // Test that the ID matches our pattern including uppercase
       expect(user.id).toMatch(/^usr_[A-Z0-9]+$/);
     });
+
+    describe("Function-based prefixes", () => {
+      it("should use function-based prefix when prefixes is a function", async () => {
+        const prefixFunction = jest.fn((modelName: string) => {
+          if (modelName === "User") return "usr";
+          if (modelName === "Post") return "pst";
+          return null;
+        });
+
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: prefixFunction,
+          },
+          mockDMMF,
+        );
+
+        const result = await extension.query.$allModels.create({
+          args: { data: {} },
+          query: mockQuery,
+          model: "User",
+        });
+
+        expect(prefixFunction).toHaveBeenCalledWith("User");
+        expect(result.data.id).toMatch(/^usr_/);
+        expect(mockQuery).toHaveBeenCalledWith({
+          data: { id: expect.stringMatching(/^usr_/) },
+        });
+      });
+
+      it("should handle function returning null for unknown models", async () => {
+        const prefixFunction = jest.fn((modelName: string) => {
+          if (modelName === "User") return "usr";
+          return null;
+        });
+
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: prefixFunction,
+          },
+          mockDMMF,
+        );
+
+        const result = await extension.query.$allModels.create({
+          args: { data: {} },
+          query: mockQuery,
+          model: "UnknownModel",
+        });
+
+        expect(prefixFunction).toHaveBeenCalledWith("UnknownModel");
+        expect(result.data).not.toHaveProperty("id");
+        expect(mockQuery).toHaveBeenCalledWith({
+          data: {},
+        });
+      });
+
+      it("should use custom idGenerator with function-based prefix", async () => {
+        const prefixFunction = jest.fn((modelName: string) => {
+          if (modelName === "User") return "usr";
+          return null;
+        });
+
+        const customIdGenerator = jest.fn(
+          (prefix: string) => `${prefix}_custom_id`,
+        );
+
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: prefixFunction,
+            idGenerator: customIdGenerator,
+          },
+          mockDMMF,
+        );
+
+        await extension.query.$allModels.create({
+          args: { data: {} },
+          query: mockQuery,
+          model: "User",
+        });
+
+        expect(prefixFunction).toHaveBeenCalledWith("User");
+        expect(customIdGenerator).toHaveBeenCalledWith("usr");
+        expect(mockQuery).toHaveBeenCalledWith({
+          data: { id: "usr_custom_id" },
+        });
+      });
+
+      it("should handle function-based prefix with createMany operation", async () => {
+        const prefixFunction = jest.fn((modelName: string) => {
+          if (modelName === "User") return "usr";
+          return null;
+        });
+
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: prefixFunction,
+          },
+          mockDMMF,
+        );
+
+        const result = await extension.query.$allModels.createMany({
+          args: {
+            data: [{}, {}],
+          },
+          query: mockQuery,
+          model: "User",
+        });
+
+        expect(prefixFunction).toHaveBeenCalledTimes(2);
+        expect(result.data).toHaveLength(2);
+        expect(result.data[0].id).toMatch(/^usr_/);
+        expect(result.data[1].id).toMatch(/^usr_/);
+      });
+
+      it("should handle function-based prefix with nested relations", async () => {
+        const prefixFunction = jest.fn((modelName: string) => {
+          if (modelName === "User") return "usr";
+          if (modelName === "Post") return "pst";
+          if (modelName === "Category") return "cat";
+          return null;
+        });
+
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: prefixFunction,
+          },
+          mockDMMF,
+        );
+
+        const result = await extension.query.$allModels.create({
+          args: {
+            data: {
+              name: "Test User",
+              posts: {
+                create: [
+                  {
+                    title: "Test Post 1",
+                    categories: {
+                      create: {
+                        name: "Test Category",
+                      },
+                    },
+                  },
+                  {
+                    title: "Test Post 2",
+                  },
+                ],
+              },
+            },
+          },
+          query: mockQuery,
+          model: "User",
+        });
+
+        expect(result.data).toBeDefined();
+        expect(result.data.id).toMatch(/^usr_/);
+        expect(result.data.posts.create[0].id).toMatch(/^pst_/);
+        expect(result.data.posts.create[0].categories.create.id).toMatch(
+          /^cat_/,
+        );
+        expect(result.data.posts.create[1].id).toMatch(/^pst_/);
+      });
+
+      it("should maintain backward compatibility with object-based prefixes", async () => {
+        const extension = createPrefixedIdsExtension(
+          {
+            prefixes: {
+              User: "usr",
+              Post: "pst",
+            },
+          },
+          mockDMMF,
+        );
+
+        const result = await extension.query.$allModels.create({
+          args: { data: {} },
+          query: mockQuery,
+          model: "User",
+        });
+
+        expect(result.data.id).toMatch(/^usr_/);
+        expect(mockQuery).toHaveBeenCalledWith({
+          data: { id: expect.stringMatching(/^usr_/) },
+        });
+      });
+    });
   });
 
   describe("Manual ID Preservation", () => {

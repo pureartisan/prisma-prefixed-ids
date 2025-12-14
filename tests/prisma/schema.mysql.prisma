@@ -1,0 +1,33 @@
+// This is your Prisma schema file for MySQL integration tests
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../client-mysql"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id        String     @id
+  orderNumber String   @unique
+  lineItems LineItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("orders")
+}
+
+model LineItem {
+  id        String  @id
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("line_items")
+}

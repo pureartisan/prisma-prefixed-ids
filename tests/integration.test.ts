@@ -613,6 +613,586 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
     });
   });
 
+  describe('Transaction Support', () => {
+    it('should work correctly within an interactive transaction with single create', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user = await tx.user.create({
+          data: {
+            name: 'Transaction User',
+            email: 'transaction@example.com',
+          },
+        });
+
+        return user;
+      });
+
+      expect(result.id).toMatch(/^usr_/);
+      expect(result.name).toBe('Transaction User');
+
+      // Verify it was actually saved
+      const savedUser = await prisma.user.findUnique({
+        where: { id: result.id },
+      });
+      expect(savedUser).not.toBeNull();
+      expect(savedUser!.id).toBe(result.id);
+    });
+
+    it('should work correctly within an interactive transaction with multiple creates', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user1 = await tx.user.create({
+          data: {
+            name: 'Transaction User 1',
+            email: 'tx1@example.com',
+          },
+        });
+
+        const user2 = await tx.user.create({
+          data: {
+            name: 'Transaction User 2',
+            email: 'tx2@example.com',
+          },
+        });
+
+        const post = await tx.post.create({
+          data: {
+            title: 'Transaction Post',
+            content: 'Created in transaction',
+            authorId: user1.id,
+          },
+        });
+
+        return { user1, user2, post };
+      });
+
+      expect(result.user1.id).toMatch(/^usr_/);
+      expect(result.user2.id).toMatch(/^usr_/);
+      expect(result.post.id).toMatch(/^pst_/);
+      expect(result.user1.id).not.toBe(result.user2.id);
+
+      // Verify all were saved
+      const users = await prisma.user.findMany({
+        where: {
+          id: {
+            in: [result.user1.id, result.user2.id],
+          },
+        },
+      });
+      expect(users).toHaveLength(2);
+
+      const post = await prisma.post.findUnique({
+        where: { id: result.post.id },
+      });
+      expect(post).not.toBeNull();
+      expect(post!.authorId).toBe(result.user1.id);
+    });
+
+    it('should work with nested creates within a transaction', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user = await tx.user.create({
+          data: {
+            name: 'Nested Transaction User',
+            email: 'nested-tx@example.com',
+            posts: {
+              create: [
+                {
+                  title: 'Transaction Post 1',
+                  content: 'First post in transaction',
+                  categories: {
+                    create: [
+                      { name: 'TX Category 1' },
+                      { name: 'TX Category 2' },
+                    ],
+                  },
+                },
+                {
+                  title: 'Transaction Post 2',
+                  content: 'Second post in transaction',
+                },
+              ],
+            },
+          },
+          include: {
+            posts: {
+              include: {
+                categories: true,
+              },
+            },
+          },
+        });
+
+        return user;
+      });
+
+      expect(result.id).toMatch(/^usr_/);
+      expect(result.posts).toHaveLength(2);
+      result.posts.forEach((post: any) => {
+        expect(post.id).toMatch(/^pst_/);
+        expect(post.authorId).toBe(result.id);
+      });
+
+      expect(result.posts[0].categories).toHaveLength(2);
+      result.posts[0].categories.forEach((category: any) => {
+        expect(category.id).toMatch(/^cat_/);
+      });
+
+      // Verify in database
+      const savedUser = await prisma.user.findUnique({
+        where: { id: result.id },
+        include: {
+          posts: {
+            include: {
+              categories: true,
+            },
+          },
+        },
+      });
+
+      expect(savedUser).not.toBeNull();
+      expect(savedUser!.posts).toHaveLength(2);
+    });
+
+    it('should work with createMany within a transaction', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const users = await tx.user.createMany({
+          data: [
+            { name: 'Bulk TX User 1', email: 'bulktx1@example.com' },
+            { name: 'Bulk TX User 2', email: 'bulktx2@example.com' },
+            { name: 'Bulk TX User 3', email: 'bulktx3@example.com' },
+          ],
+        });
+
+        return users;
+      });
+
+      expect(result.count).toBe(3);
+
+      // Verify all have prefixed IDs
+      const allUsers = await prisma.user.findMany({
+        where: {
+          email: {
+            contains: 'bulktx',
+          },
+        },
+      });
+
+      expect(allUsers).toHaveLength(3);
+      allUsers.forEach(user => {
+        expect(user.id).toMatch(/^usr_/);
+      });
+    });
+
+    it('should handle large batch creates within a transaction', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const bulkData = Array.from({ length: 100 }, (_, i) => ({
+          name: `Batch TX User ${i + 1}`,
+          email: `batchtx${i + 1}@example.com`,
+        }));
+
+        const users = await tx.user.createMany({
+          data: bulkData,
+        });
+
+        return users;
+      });
+
+      expect(result.count).toBe(100);
+
+      // Verify all have prefixed IDs
+      const allUsers = await prisma.user.findMany({
+        where: {
+          email: {
+            contains: 'batchtx',
+          },
+        },
+      });
+
+      expect(allUsers).toHaveLength(100);
+      allUsers.forEach(user => {
+        expect(user.id).toMatch(/^usr_/);
+      });
+    });
+
+    it('should properly rollback on transaction failure', async () => {
+      let userId: string | null = null;
+
+      try {
+        await extendedPrisma.$transaction(async (tx: any) => {
+          const user = await tx.user.create({
+            data: {
+              name: 'Rollback Test User',
+              email: 'rollback@example.com',
+            },
+          });
+
+          userId = user.id;
+          expect(user.id).toMatch(/^usr_/);
+
+          // Force an error by trying to create duplicate email
+          await tx.user.create({
+            data: {
+              name: 'Duplicate User',
+              email: 'rollback@example.com', // Same email
+            },
+          });
+        });
+      } catch (error) {
+        // Expected to fail due to unique constraint
+      }
+
+      // Verify the user was NOT saved due to rollback
+      if (userId) {
+        const savedUser = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+        expect(savedUser).toBeNull();
+      }
+
+      const userByEmail = await prisma.user.findUnique({
+        where: { email: 'rollback@example.com' },
+      });
+      expect(userByEmail).toBeNull();
+    });
+
+    it('should work with deeply nested creates in a transaction', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user = await tx.user.create({
+          data: {
+            name: 'Deep TX User',
+            email: 'deeptx@example.com',
+            posts: {
+              create: {
+                title: 'Deep TX Post',
+                content: 'Deep nested transaction test',
+                categories: {
+                  create: [
+                    { name: 'Deep TX Category 1' },
+                    { name: 'Deep TX Category 2' },
+                  ],
+                },
+                comments: {
+                  create: {
+                    content: 'Deep TX Comment',
+                    author: {
+                      create: {
+                        name: 'Comment Author TX',
+                        email: 'commentauthor-tx@example.com',
+                      },
+                    },
+                    likes: {
+                      create: [
+                        { type: 'like' },
+                        { type: 'love' },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+          include: {
+            posts: {
+              include: {
+                categories: true,
+                comments: {
+                  include: {
+                    author: true,
+                    likes: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return user;
+      });
+
+      expect(result.id).toMatch(/^usr_/);
+      expect(result.posts).toHaveLength(1);
+
+      const post = result.posts[0];
+      expect(post.id).toMatch(/^pst_/);
+      expect(post.categories).toHaveLength(2);
+      post.categories.forEach((cat: any) => {
+        expect(cat.id).toMatch(/^cat_/);
+      });
+
+      expect(post.comments).toHaveLength(1);
+      const comment = post.comments[0];
+      expect(comment.id).toMatch(/^cmt_/);
+      expect(comment.author.id).toMatch(/^usr_/);
+      expect(comment.likes).toHaveLength(2);
+      comment.likes.forEach((like: any) => {
+        expect(like.id).toMatch(/^lik_/);
+      });
+
+      // Verify everything was saved
+      const totalUsers = await prisma.user.count();
+      expect(totalUsers).toBeGreaterThanOrEqual(2); // Main user + comment author
+    });
+
+    it('should work with mixed operations in a transaction', async () => {
+      // First create some initial data
+      const initialUser = await extendedPrisma.user.create({
+        data: {
+          name: 'Initial User',
+          email: 'initial-mixed@example.com',
+        },
+      });
+
+      const initialPost = await extendedPrisma.post.create({
+        data: {
+          title: 'Initial Post',
+          content: 'Initial content',
+          authorId: initialUser.id,
+        },
+      });
+
+      // Now perform mixed operations in a transaction
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        // Create a new user
+        const newUser = await tx.user.create({
+          data: {
+            name: 'Mixed TX User',
+            email: 'mixed-tx@example.com',
+          },
+        });
+
+        // Update the existing post
+        const updatedPost = await tx.post.update({
+          where: { id: initialPost.id },
+          data: {
+            title: 'Updated in Transaction',
+            comments: {
+              create: {
+                content: 'Comment from transaction',
+                authorId: newUser.id,
+              },
+            },
+          },
+          include: {
+            comments: true,
+          },
+        });
+
+        // Create a new post for the new user
+        const newPost = await tx.post.create({
+          data: {
+            title: 'New Post in TX',
+            authorId: newUser.id,
+          },
+        });
+
+        return { newUser, updatedPost, newPost };
+      });
+
+      expect(result.newUser.id).toMatch(/^usr_/);
+      expect(result.newPost.id).toMatch(/^pst_/);
+      expect(result.updatedPost.id).toBe(initialPost.id);
+      expect(result.updatedPost.comments).toHaveLength(1);
+      expect(result.updatedPost.comments[0].id).toMatch(/^cmt_/);
+    });
+
+    it('should handle sequential transactions correctly', async () => {
+      const tx1Result = await extendedPrisma.$transaction(async (tx: any) => {
+        return await tx.user.create({
+          data: {
+            name: 'Sequential TX 1',
+            email: 'seqtx1@example.com',
+          },
+        });
+      });
+
+      const tx2Result = await extendedPrisma.$transaction(async (tx: any) => {
+        return await tx.user.create({
+          data: {
+            name: 'Sequential TX 2',
+            email: 'seqtx2@example.com',
+          },
+        });
+      });
+
+      expect(tx1Result.id).toMatch(/^usr_/);
+      expect(tx2Result.id).toMatch(/^usr_/);
+      expect(tx1Result.id).not.toBe(tx2Result.id);
+
+      // Both should be saved
+      const users = await prisma.user.findMany({
+        where: {
+          id: {
+            in: [tx1Result.id, tx2Result.id],
+          },
+        },
+      });
+      expect(users).toHaveLength(2);
+    });
+
+    it('should work with upsert operations in a transaction', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user = await tx.user.upsert({
+          where: { email: 'upsert-tx@example.com' },
+          create: {
+            name: 'Upsert TX User',
+            email: 'upsert-tx@example.com',
+            posts: {
+              create: {
+                title: 'Upsert TX Post',
+                content: 'Created via upsert in transaction',
+              },
+            },
+          },
+          update: {
+            name: 'Updated in TX',
+          },
+          include: {
+            posts: true,
+          },
+        });
+
+        return user;
+      });
+
+      expect(result.id).toMatch(/^usr_/);
+      expect(result.name).toBe('Upsert TX User');
+      expect(result.posts).toHaveLength(1);
+      expect(result.posts[0].id).toMatch(/^pst_/);
+
+      // Verify it was saved
+      const savedUser = await prisma.user.findUnique({
+        where: { id: result.id },
+        include: { posts: true },
+      });
+      expect(savedUser).not.toBeNull();
+      expect(savedUser!.posts).toHaveLength(1);
+    });
+
+    it('should preserve manual IDs within transactions', async () => {
+      const result = await extendedPrisma.$transaction(async (tx: any) => {
+        const user = await tx.user.create({
+          data: {
+            id: 'manual_tx_user',
+            name: 'Manual ID TX User',
+            email: 'manual-tx@example.com',
+            posts: {
+              create: {
+                id: 'manual_tx_post',
+                title: 'Manual ID TX Post',
+                content: 'With manual ID in transaction',
+              },
+            },
+          },
+          include: {
+            posts: true,
+          },
+        });
+
+        return user;
+      });
+
+      expect(result.id).toBe('manual_tx_user');
+      expect(result.posts[0].id).toBe('manual_tx_post');
+
+      // Verify in database
+      const savedUser = await prisma.user.findUnique({
+        where: { id: 'manual_tx_user' },
+      });
+      expect(savedUser).not.toBeNull();
+
+      const savedPost = await prisma.post.findUnique({
+        where: { id: 'manual_tx_post' },
+      });
+      expect(savedPost).not.toBeNull();
+    });
+
+    it('should timeout when using wrong transaction pattern (demonstrates the bug)', async () => {
+      // This test demonstrates the bug: using prisma.$transaction with extendedPrisma inside
+      // will cause the transaction to hang and timeout
+
+      const transactionPromise = prisma.$transaction(async (tx: any) => {
+        // WRONG: Using extendedPrisma inside prisma.$transaction
+        // This will hang because extendedPrisma operations are not aware of the tx context
+        const user = await extendedPrisma.user.create({
+          data: {
+            name: 'Wrong Pattern User',
+            email: 'wrong-pattern-hang@example.com',
+          },
+        });
+        return user;
+      }, {
+        timeout: 2000, // 2 second timeout
+      });
+
+      let didError = false;
+      let errorMessage = '';
+
+      try {
+        await transactionPromise;
+      } catch (error: any) {
+        didError = true;
+        errorMessage = error.message;
+      }
+
+      // Should have timed out
+      expect(didError).toBe(true);
+      expect(errorMessage.toLowerCase()).toContain('transaction');
+
+      // Verify nothing was created due to timeout
+      const user = await prisma.user.findUnique({
+        where: { email: 'wrong-pattern-hang@example.com' },
+      });
+      // User might exist if created before timeout, but transaction didn't complete properly
+      // This demonstrates the unreliable behavior of the wrong pattern
+    }, 15000); // Give test 15 seconds to complete including timeout handling
+
+    it('should demonstrate correct vs incorrect transaction patterns', async () => {
+      // Pattern 1: CORRECT - Use extendedPrisma.$transaction with tx client
+      try {
+        await extendedPrisma.$transaction(async (tx: any) => {
+          const user = await tx.user.create({
+            data: {
+              name: 'Correct Pattern User',
+              email: 'correct-pattern@example.com',
+            },
+          });
+
+          // Force an error to trigger rollback
+          throw new Error('Intentional error for rollback test');
+        });
+      } catch (error) {
+        // Expected to throw
+      }
+
+      // User should NOT exist due to rollback
+      const correctUser = await prisma.user.findUnique({
+        where: { email: 'correct-pattern@example.com' },
+      });
+      expect(correctUser).toBeNull();
+
+      // Pattern 2: INCORRECT - Attempting to use base prisma for transaction
+      // This will timeout, so we use a shorter timeout
+      let incorrectPatternFailed = false;
+      try {
+        await prisma.$transaction(async (tx: any) => {
+          const user = await extendedPrisma.user.create({
+            data: {
+              name: 'Incorrect Pattern User',
+              email: 'incorrect-pattern@example.com',
+            },
+          });
+
+          throw new Error('Should not reach here');
+        }, {
+          timeout: 2000,
+        });
+      } catch (error: any) {
+        incorrectPatternFailed = true;
+        // Expected to timeout or fail
+      }
+
+      expect(incorrectPatternFailed).toBe(true);
+    }, 15000);
+  });
+
   describe("Manual ID Preservation", () => {
     it("should preserve manually set ID in create operation", async () => {
       const user = await extendedPrisma.user.create({

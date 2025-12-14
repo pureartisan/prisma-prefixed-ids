@@ -304,20 +304,162 @@ For example, with a 24-character nanoid:
 
 ### Running Tests
 
-This project includes comprehensive unit and integration tests:
+This project includes comprehensive unit and integration tests that support SQLite, PostgreSQL, and MySQL:
 
 ```bash
-# Run all tests
+# Run all tests (uses SQLite by default)
 npm test
 
 # Run only unit tests (fast, no database)
 npm run test:unit
 
-# Run only integration tests (uses real SQLite database)
+# Run only integration tests (uses SQLite by default)
 npm run test:integration
+
+# Run integration tests with PostgreSQL
+npm run test:integration:pg
+
+# Run integration tests with MySQL
+npm run test:integration:mysql
 ```
 
-The integration tests automatically download the Prisma query engine and set up a SQLite database as needed. No additional setup is required.
+#### Testing with SQLite (Default)
+
+By default, tests use SQLite which requires no additional setup. The test database is automatically created and managed.
+
+#### Testing with PostgreSQL
+
+To run tests against PostgreSQL:
+
+1. **Start a PostgreSQL instance** (e.g., using Docker):
+```bash
+docker run --name postgres-test \
+  -e POSTGRES_PASSWORD=password \
+  -e POSTGRES_DB=prisma_test \
+  -p 5432:5432 -d postgres:15
+```
+
+2. **Create a `.env.testing` file** in the project root:
+```env
+TEST_DATABASE_PROVIDER=postgresql
+# IMPORTANT: Use TEST_DATABASE_URL to avoid accidentally affecting production
+TEST_DATABASE_URL="postgresql://postgres:password@localhost:5432/prisma_test"
+```
+
+3. **Run the tests**:
+```bash
+npm test
+# or specifically run integration tests
+npm run test:integration
+# or use the shortcut
+npm run test:integration:pg
+```
+
+#### Testing with MySQL
+
+To run tests against MySQL:
+
+1. **Start a MySQL instance** (e.g., using Docker):
+```bash
+docker run --name mysql-test \
+  -e MYSQL_ROOT_PASSWORD=password \
+  -e MYSQL_DATABASE=prisma_test \
+  -p 3306:3306 -d mysql:8
+```
+
+2. **Create a `.env.testing` file** in the project root:
+```env
+TEST_DATABASE_PROVIDER=mysql
+# IMPORTANT: Use TEST_DATABASE_URL to avoid accidentally affecting production
+TEST_DATABASE_URL="mysql://root:password@localhost:3306/prisma_test"
+```
+
+3. **Run the tests**:
+```bash
+npm test
+# or use the shortcut
+npm run test:integration:mysql
+```
+
+The test setup automatically:
+- ✅ Detects the database provider from `.env.testing` (SQLite, PostgreSQL, or MySQL)
+- ✅ Resets the database before running tests
+- ✅ Generates the Prisma client with the correct provider
+- ✅ Cleans up test data between tests
+
+#### CI/CD Configuration
+
+For CI/CD environments, you can configure different databases for different scenarios:
+
+**GitHub Actions example:**
+```yaml
+# .github/workflows/ci.yml
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test-sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm ci
+      - run: npm test  # Uses SQLite by default
+
+  test-postgresql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: prisma_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm ci
+      - name: Create .env.testing
+        run: |
+          echo "TEST_DATABASE_PROVIDER=postgresql" >> .env.testing
+          echo 'TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/prisma_test"' >> .env.testing
+      - run: npm test
+
+  test-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: prisma_test
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm ci
+      - name: Create .env.testing
+        run: |
+          echo "TEST_DATABASE_PROVIDER=mysql" >> .env.testing
+          echo 'TEST_DATABASE_URL="mysql://root:password@localhost:3306/prisma_test"' >> .env.testing
+      - run: npm test
+```
+
+**Local Development:**
+- Use PostgreSQL for thorough testing: Create `.env.testing` with `DB_TESTING=postgresql`
+- Use SQLite for quick iterations: Don't create `.env.testing` or set `DB_TESTING=sqlite`
 
 For more detailed development information, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 

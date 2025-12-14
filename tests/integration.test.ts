@@ -10,13 +10,26 @@ jest.mock('nanoid', () => ({
   }),
 }));
 
-// Integration tests with real SQLite database
-describe('Integration Tests - Prisma Prefixed IDs', () => {
+// Get database info for test description
+const testDbProvider = process.env.TEST_DATABASE_PROVIDER || 'sqlite';
+const testDatabaseUrl = process.env.TEST_DATABASE_URL || 'file:../db/test.db';
+
+let dbInfo = 'SQLite (test.db)';
+if (testDbProvider === 'postgresql') {
+  dbInfo = `PostgreSQL (${testDatabaseUrl.replace(/:[^:@]+@/, ':****@')})`;
+} else if (testDbProvider === 'mysql') {
+  dbInfo = `MySQL (${testDatabaseUrl.replace(/:[^:@]+@/, ':****@')})`;
+}
+
+// Integration tests with real database
+describe(`Integration Tests - Prisma Prefixed IDs [${dbInfo}]`, () => {
   let prisma: PrismaClient;
   let extendedPrisma: ReturnType<typeof extendPrismaClient<any>>;
   const testRunId = Date.now().toString();
 
   beforeAll(async () => {
+    console.log(`\n🧪 Running tests with ${dbInfo}\n`);
+
     prisma = new PrismaClient();
     await prisma.$connect();
 
@@ -38,12 +51,13 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
 
   beforeEach(async () => {
     // Clean up database before each test
+    // Order matters due to foreign key constraints
     await prisma.like.deleteMany();
     await prisma.comment.deleteMany();
     await prisma.post.deleteMany();
     await prisma.category.deleteMany();
     await prisma.user.deleteMany();
-  });
+  }, 10000); // Increase timeout for PostgreSQL cleanup
 
   describe('Basic Operations', () => {
     it('should create a user with prefixed ID', async () => {

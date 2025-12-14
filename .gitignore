@@ -10,6 +10,7 @@ coverage/
 tests/client/
 !tests/db/.gitkeep
 tests/db/
+tests/prisma/.schema.generated.prisma
 
 # Production
 dist/
@@ -19,6 +20,7 @@ build/
 .DS_Store
 .env
 .env.local
+.env.testing
 .env.development.local
 .env.test.local
 .env.production.local

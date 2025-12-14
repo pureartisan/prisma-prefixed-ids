@@ -99,10 +99,10 @@ describe('MySQL Integration Tests - Nested Create with Arrays', () => {
       });
       expect(lineItemsInDb).toHaveLength(2);
       
-      const dbLineItemIds = lineItemsInDb.map(item => item.id);
+      const dbLineItemIds = lineItemsInDb.map((item: any) => item.id);
       expect(new Set(dbLineItemIds).size).toBe(2); // All IDs should be unique
       
-      lineItemsInDb.forEach(item => {
+      lineItemsInDb.forEach((item: any) => {
         expect(item.id).toMatch(/^lin_/);
       });
     });
@@ -153,7 +153,7 @@ describe('MySQL Integration Tests - Nested Create with Arrays', () => {
       });
       expect(lineItemsInDb).toHaveLength(3);
       
-      const dbLineItemIds = lineItemsInDb.map(item => item.id);
+      const dbLineItemIds = lineItemsInDb.map((item: any) => item.id);
       const dbUniqueIds = new Set(dbLineItemIds);
       expect(dbUniqueIds.size).toBe(3); // Must have 3 unique IDs in database
     });

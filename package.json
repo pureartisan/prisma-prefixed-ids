@@ -34,7 +34,7 @@
     "db:generate:mysql": "prisma generate --schema=tests/prisma/schema.mysql.prisma",
     "db:push:mysql": "prisma db push --schema=tests/prisma/schema.mysql.prisma",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage --collectCoverageFrom='src/**/*.ts' --coveragePathIgnorePatterns='src/__tests__'",
+    "test:coverage": "jest --coverage --collectCoverageFrom='src/**/*.ts' --coveragePathIgnorePatterns='src/__tests__' --testPathIgnorePatterns='integration.mysql'",
     "db:setup": "npm run db:generate && npm run db:push",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

@@ -40,6 +40,8 @@ jobs:
         mkdir -p tests/db
         npx prisma generate --schema=tests/prisma/schema.prisma
         npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
+        # Generate MySQL client for TypeScript compilation (tests won't run without DATABASE_URL)
+        npx prisma generate --schema=tests/prisma/schema.mysql.prisma || true
 
     - name: Run tests with coverage
       run: npm run test:coverage

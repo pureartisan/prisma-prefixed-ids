@@ -39,7 +39,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "git:push": "git push && git push --tags"
+    "git:push": "git push && git push --tags",
+    "trypublish": "npm publish --access public"
   },
   "keywords": [
     "prisma",

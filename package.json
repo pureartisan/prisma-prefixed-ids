@@ -28,7 +28,7 @@
     "clean:test-artifacts": "rm -rf test-client prisma/test.db prisma/test.db-journal",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --testPathIgnorePatterns=integration",
-    "test:integration": "npm run db:setup && jest --testPathPattern=integration",
+    "test:integration": "npm run db:setup && jest --testPathPattern=integration --testPathIgnorePatterns='integration.mysql|integration.postgres'",
     "test:mysql": "npm run db:setup:mysql && jest --testPathPattern=integration.mysql",
     "test:postgres": "npm run db:setup:postgres && jest --testPathPattern=integration.postgres",
     "db:setup:mysql": "npm run db:generate:mysql && npm run db:push:mysql",

@@ -42,4 +42,49 @@ jobs:
         npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
 
     - name: Run tests with coverage
-      run: npm run test:coverage 
+      run: npm run test:coverage
+
+  mysql-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Set up MySQL test database
+      env:
+        DATABASE_URL: mysql://root:testpassword@localhost:3306/testdb
+      run: |
+        npx prisma generate --schema=tests/prisma/schema.mysql.prisma
+        npx prisma db push --schema=tests/prisma/schema.mysql.prisma --force-reset
+
+    - name: Run MySQL integration tests
+      env:
+        DATABASE_URL: mysql://root:testpassword@localhost:3306/testdb
+      run: npm run test:mysql 

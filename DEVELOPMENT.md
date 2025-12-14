@@ -29,6 +29,15 @@ npm run test:mysql
 - Tests specific scenarios like nested create with arrays (createMany in disguise)
 - Automatically loads environment variables from `.env` file using `dotenv`
 
+### PostgreSQL Integration Tests
+```bash
+npm run test:postgres
+```
+- Real database tests using PostgreSQL
+- Requires `DATABASE_URL` environment variable to be set
+- Tests specific scenarios like nested create with arrays (createMany in disguise)
+- Automatically loads environment variables from `.env` file using `dotenv`
+
 ### Run All Tests
 ```bash
 npm test
@@ -110,6 +119,20 @@ npm run db:setup:mysql
 ```
 
 **Note**: MySQL tests require the `DATABASE_URL` environment variable to be set with a valid MySQL connection string. You can set this in your `.env` file (see [Environment Variables](#environment-variables) section above).
+
+### PostgreSQL
+```bash
+# Generate Prisma client for PostgreSQL tests
+npm run db:generate:postgres
+
+# Push schema to PostgreSQL database
+npm run db:push:postgres
+
+# Setup everything (generate + push)
+npm run db:setup:postgres
+```
+
+**Note**: PostgreSQL tests require the `DATABASE_URL` environment variable to be set with a valid PostgreSQL connection string. You can set this in your `.env` file (see [Environment Variables](#environment-variables) section above).
 
 ## CI/CD Considerations
 

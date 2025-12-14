@@ -40,8 +40,9 @@ jobs:
         mkdir -p tests/db
         npx prisma generate --schema=tests/prisma/schema.prisma
         npx prisma db push --schema=tests/prisma/schema.prisma --force-reset
-        # Generate MySQL client for TypeScript compilation (tests won't run without DATABASE_URL)
+        # Generate MySQL and PostgreSQL clients for TypeScript compilation (tests won't run without DATABASE_URL)
         npx prisma generate --schema=tests/prisma/schema.mysql.prisma || true
+        npx prisma generate --schema=tests/prisma/schema.postgres.prisma || true
 
     - name: Run tests with coverage
       run: npm run test:coverage
@@ -89,4 +90,50 @@ jobs:
     - name: Run MySQL integration tests
       env:
         DATABASE_URL: mysql://root:testpassword@localhost:3306/testdb
-      run: npm run test:mysql 
+      run: npm run test:mysql
+
+  postgres-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Set up PostgreSQL test database
+      env:
+        DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/testdb
+      run: |
+        npx prisma generate --schema=tests/prisma/schema.postgres.prisma
+        npx prisma db push --schema=tests/prisma/schema.postgres.prisma --force-reset
+
+    - name: Run PostgreSQL integration tests
+      env:
+        DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/testdb
+      run: npm run test:postgres 

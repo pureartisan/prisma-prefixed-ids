@@ -19,7 +19,7 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
 
   beforeAll(async () => {
     const adapter = new PrismaLibSql({ url: 'file:tests/db/test.db' });
-    prisma = new PrismaClient({ adapter });
+    prisma = new PrismaClient({ adapter } as any);
     await prisma.$connect();
 
     // Extend Prisma client with prefixed IDs after connection

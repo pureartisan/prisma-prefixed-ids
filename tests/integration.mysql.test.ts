@@ -1,6 +1,7 @@
 import { beforeAll, afterAll, beforeEach, describe, it, expect, jest } from '@jest/globals';
 import { config } from 'dotenv';
 import { PrismaClient } from './client-mysql';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { extendPrismaClient } from '../src/index';
 
 // Load environment variables from .env file
@@ -27,7 +28,17 @@ describe('MySQL Integration Tests - Nested Create with Arrays', () => {
       return;
     }
 
-    prisma = new PrismaClient();
+    // Parse DATABASE_URL for adapter config
+    const url = new URL(process.env.DATABASE_URL);
+    const adapter = new PrismaMariaDb({
+      host: url.hostname,
+      port: parseInt(url.port || '3306'),
+      user: url.username,
+      password: url.password,
+      database: url.pathname.slice(1), // Remove leading slash
+    });
+
+    prisma = new PrismaClient({ adapter } as any);
     await prisma.$connect();
 
     // Extend Prisma client with prefixed IDs after connection

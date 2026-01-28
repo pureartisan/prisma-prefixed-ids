@@ -1,6 +1,7 @@
 import { beforeAll, afterAll, beforeEach, describe, it, expect, jest } from '@jest/globals';
 import { config } from 'dotenv';
 import { PrismaClient } from './client-postgres';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { extendPrismaClient } from '../src/index';
 
 // Load environment variables from .env file
@@ -27,7 +28,8 @@ describe('PostgreSQL Integration Tests - Nested Create with Arrays', () => {
       return;
     }
 
-    prisma = new PrismaClient();
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    prisma = new PrismaClient({ adapter } as any);
     await prisma.$connect();
 
     // Extend Prisma client with prefixed IDs after connection

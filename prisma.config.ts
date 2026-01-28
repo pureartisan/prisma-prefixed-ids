@@ -1,7 +1,7 @@
 import { defineConfig } from 'prisma/config'
 
 // Determine which schema to use based on DATABASE_URL
-const getDatasourceConfig = () => {
+const getDatasourceConfig = (): { schema: string; datasource: { url: string } } => {
   const url = process.env.DATABASE_URL
 
   if (url?.startsWith('mysql://')) {

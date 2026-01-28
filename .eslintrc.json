@@ -29,6 +29,7 @@
     "dist/**/*",
     "node_modules/**/*",
     "tests/client/**/*",
+    "tests/client-*/**/*",
     "tests/db/**/*"
   ]
 }

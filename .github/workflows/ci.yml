@@ -47,6 +47,10 @@ jobs:
   mysql-tests:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        prisma-version: [5, 6, 7]
+
     services:
       mysql:
         image: mysql:8.0
@@ -73,6 +77,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Install Prisma ${{ matrix.prisma-version }}
+      run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
+
     - name: Set up MySQL test database
       env:
         DATABASE_URL: mysql://root:testpassword@localhost:3306/testdb
@@ -87,6 +94,10 @@ jobs:
 
   postgres-tests:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        prisma-version: [5, 6, 7]
 
     services:
       postgres:
@@ -115,6 +126,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Install Prisma ${{ matrix.prisma-version }}
+      run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
+
     - name: Set up PostgreSQL test database
       env:
         DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/testdb
@@ -130,6 +144,10 @@ jobs:
   sqlite-tests:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        prisma-version: [5, 6, 7]
+
     steps:
     - uses: actions/checkout@v4
 
@@ -141,6 +159,9 @@ jobs:
 
     - name: Install dependencies
       run: npm ci
+
+    - name: Install Prisma ${{ matrix.prisma-version }}
+      run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
 
     - name: Set up SQLite test database
       run: |

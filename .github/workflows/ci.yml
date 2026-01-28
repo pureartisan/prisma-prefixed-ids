@@ -80,6 +80,14 @@ jobs:
     - name: Install Prisma ${{ matrix.prisma-version }}
       run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
 
+    - name: Configure Prisma 6 (if applicable)
+      if: matrix.prisma-version == 6
+      run: |
+        # Add url back to schema (Prisma 6 requires it in schema file)
+        sed -i 's/provider = "mysql"/provider = "mysql"\n  url      = env("DATABASE_URL")/' tests/prisma/schema.mysql.prisma
+        # Remove prisma.config.ts (not fully supported in Prisma 6)
+        rm -f prisma.config.ts
+
     - name: Set up MySQL test database
       env:
         DATABASE_URL: mysql://root:testpassword@localhost:3306/testdb
@@ -129,6 +137,14 @@ jobs:
     - name: Install Prisma ${{ matrix.prisma-version }}
       run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
 
+    - name: Configure Prisma 6 (if applicable)
+      if: matrix.prisma-version == 6
+      run: |
+        # Add url back to schema (Prisma 6 requires it in schema file)
+        sed -i 's/provider = "postgresql"/provider = "postgresql"\n  url      = env("DATABASE_URL")/' tests/prisma/schema.postgres.prisma
+        # Remove prisma.config.ts (not fully supported in Prisma 6)
+        rm -f prisma.config.ts
+
     - name: Set up PostgreSQL test database
       env:
         DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/testdb
@@ -162,6 +178,14 @@ jobs:
 
     - name: Install Prisma ${{ matrix.prisma-version }}
       run: npm install prisma@${{ matrix.prisma-version }} @prisma/client@${{ matrix.prisma-version }}
+
+    - name: Configure Prisma 6 (if applicable)
+      if: matrix.prisma-version == 6
+      run: |
+        # Add url back to schema (Prisma 6 requires it in schema file)
+        sed -i 's/provider = "sqlite"/provider = "sqlite"\n  url      = "file:..\/db\/test.db"/' tests/prisma/schema.prisma
+        # Remove prisma.config.ts (not fully supported in Prisma 6)
+        rm -f prisma.config.ts
 
     - name: Set up SQLite test database
       run: |

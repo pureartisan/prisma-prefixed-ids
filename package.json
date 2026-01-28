@@ -60,7 +60,7 @@
   "author": "Prageeth Silva <prageeth@codemode.com.au>",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.0.0 || ^6.0.0 || ^7.0.0",
+    "@prisma/client": "^6.0.0 || ^7.0.0",
     "nanoid": "^5.0.0"
   },
   "devDependencies": {
@@ -79,7 +79,7 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@prisma/client": "^5.0.0 || ^6.0.0 || ^7.0.0"
+    "@prisma/client": "^6.0.0 || ^7.0.0"
   },
   "prisma": {
     "schema": "tests/prisma/schema.prisma"

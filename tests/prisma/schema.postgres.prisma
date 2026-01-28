@@ -7,7 +7,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // @note: Prisma 6 requires it in schema file and will be added by the CI workflow
+  // url      = env("DATABASE_URL")
 }
 
 model Order {

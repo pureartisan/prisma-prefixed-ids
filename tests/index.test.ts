@@ -1,6 +1,5 @@
 import { jest } from "@jest/globals";
 
-import { PrismaClient } from "@prisma/client";
 import {
   createPrefixedIdsExtension,
   extendPrismaClient,
@@ -9,6 +8,7 @@ import {
   processNestedData,
   getModelNames,
   ModelName,
+  PrismaClientLike,
 } from "../src/index";
 
 // Create a mock DMMF structure that represents your data model
@@ -59,19 +59,15 @@ const mockDMMF = {
   },
 };
 
-// Mock PrismaClient
-jest.mock("@prisma/client", () => {
-  return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      $extends: jest.fn().mockReturnValue({}),
-      user: {
-        create: jest.fn(),
-        findUnique: jest.fn(),
-      },
-      // Add the DMMF to the mocked PrismaClient
-      _dmmf: mockDMMF,
-    })),
-  };
+// Factory to create mock PrismaClient
+const createMockPrismaClient = (): PrismaClientLike => ({
+  $extends: jest.fn().mockReturnValue({}),
+  user: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+  },
+  // Add the DMMF to the mocked PrismaClient
+  _dmmf: mockDMMF,
 });
 
 // Mock nanoid
@@ -80,12 +76,12 @@ jest.mock("nanoid", () => ({
 }));
 
 describe("PrefixedIdsExtension", () => {
-  let prisma: jest.Mocked<PrismaClient>;
+  let prisma: PrismaClientLike;
   const mockQuery = jest.fn((args: any) => Promise.resolve(args));
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma = new PrismaClient() as jest.Mocked<PrismaClient>;
+    prisma = createMockPrismaClient();
   });
 
   describe("createPrefixedIdsExtension", () => {

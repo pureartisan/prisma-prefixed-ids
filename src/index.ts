@@ -1,8 +1,17 @@
-import { type PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
 // Define ModelName type based on Prisma's model names
 export type ModelName = string;
+
+/**
+ * Minimal interface representing a Prisma Client instance.
+ * This allows the library to work with any Prisma Client version (v6, v7+)
+ * without importing from @prisma/client directly.
+ */
+export interface PrismaClientLike {
+  $extends: (extension: any) => any;
+  [key: string]: any;
+}
 
 export type PrefixConfig<ModelName extends string> = {
   prefixes:
@@ -399,16 +408,14 @@ export function createPrefixedIdsExtension<ModelName extends string>(
 
 export function extendPrismaClient<
   ModelName extends string = string,
-  Client extends PrismaClient = PrismaClient,
+  Client extends PrismaClientLike = PrismaClientLike,
 >(prisma: Client, config: PrefixConfig<ModelName>): Client {
   const dmmf = getDMMF(prisma);
-  return (prisma as any).$extends(
-    createPrefixedIdsExtension(config, dmmf),
-  ) as Client;
+  return prisma.$extends(createPrefixedIdsExtension(config, dmmf)) as Client;
 }
 
 // Helper function to get DMMF from a Prisma Client instance or query context
-export function getDMMF(clientOrContext: PrismaClient | any): any {
+export function getDMMF(clientOrContext: PrismaClientLike | any): any {
   // Try newer structure first (_runtimeDataModel)
   if ((clientOrContext as any)._runtimeDataModel) {
     const modelsEntries = Object.entries(
@@ -440,7 +447,7 @@ export function getDMMF(clientOrContext: PrismaClient | any): any {
 }
 
 // Helper function to get all model names from a Prisma Client instance
-export function getModelNames(prismaClient: PrismaClient): string[] {
+export function getModelNames(prismaClient: PrismaClientLike): string[] {
   const dmmf = getDMMF(prismaClient);
   if (!dmmf) return [];
 

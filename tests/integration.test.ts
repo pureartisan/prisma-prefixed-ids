@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, beforeEach, describe, it, expect, jest } from '@jest/globals';
 import { PrismaClient } from './client';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { extendPrismaClient } from '../src/index';
 
 // Mock nanoid to avoid ESM issues and ensure unique IDs
@@ -17,7 +18,8 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
   const testRunId = Date.now().toString();
 
   beforeAll(async () => {
-    prisma = new PrismaClient();
+    const adapter = new PrismaLibSql({ url: 'file:tests/db/test.db' });
+    prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
     // Extend Prisma client with prefixed IDs after connection

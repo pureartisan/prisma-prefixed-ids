@@ -1256,6 +1256,7 @@ describe("PrefixedIdsExtension", () => {
             User: "usr",
             Post: "pst",
             Category: "cat",
+            Comment: "cmt",
           },
         },
         mockDMMF,
@@ -1278,6 +1279,9 @@ describe("PrefixedIdsExtension", () => {
                 },
                 update: {
                   title: "Updated Post",
+                  comments: {
+                    create: { content: "New comment" },
+                  },
                 },
               },
             },
@@ -1293,6 +1297,54 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data.posts.upsert.create.categories.create.id).toMatch(
         /^cat_/,
       );
+      // The update branch should NOT get a root ID (it's an update, not a create)
+      expect(result.data.posts.upsert.update.id).toBeUndefined();
+      // But nested creates within the update branch SHOULD get prefixed IDs
+      expect(result.data.posts.upsert.update.comments.create.id).toMatch(
+        /^cmt_/,
+      );
+    });
+
+    it("should handle array upsert operations on to-many relations", async () => {
+      const extension = createPrefixedIdsExtension(
+        {
+          prefixes: {
+            User: "usr",
+            Post: "pst",
+          },
+        },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.create({
+        args: {
+          data: {
+            name: "Test User",
+            posts: {
+              upsert: [
+                {
+                  where: { id: "pst_1" },
+                  create: { title: "Post 1" },
+                  update: { title: "Updated 1" },
+                },
+                {
+                  where: { id: "pst_2" },
+                  create: { title: "Post 2" },
+                  update: { title: "Updated 2" },
+                },
+              ],
+            },
+          },
+        },
+        query: mockQuery,
+        model: "User",
+      });
+
+      expect(result.data.id).toMatch(/^usr_/);
+      expect(Array.isArray(result.data.posts.upsert)).toBe(true);
+      expect(result.data.posts.upsert).toHaveLength(2);
+      expect(result.data.posts.upsert[0].create.id).toMatch(/^pst_/);
+      expect(result.data.posts.upsert[1].create.id).toMatch(/^pst_/);
     });
 
     it("should handle connectOrCreate operation with nested creates", async () => {

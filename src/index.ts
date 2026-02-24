@@ -173,10 +173,20 @@ export const processNestedData = <T extends ModelName>(
               };
             } else if (key === "upsert") {
               // Handle upsert operation (has create and update)
-              result[key] = processUpsertItems(value, relatedModel as T, prefixedId, dmmf);
+              result[key] = processUpsertItems(
+                value,
+                relatedModel as T,
+                prefixedId,
+                dmmf,
+              );
             } else if (key === "connectOrCreate") {
               // Handle connectOrCreate operation
-              result[key] = processConnectOrCreateItems(value, relatedModel as T, prefixedId, dmmf);
+              result[key] = processConnectOrCreateItems(
+                value,
+                relatedModel as T,
+                prefixedId,
+                dmmf,
+              );
             } else if (key === "create" || key === "createMany") {
               // Only process create operations with ID generation
               result[key] = processNestedData(
@@ -216,9 +226,19 @@ export const processNestedData = <T extends ModelName>(
               ),
             };
           } else if (op === "upsert") {
-            updatedValue[op] = processUpsertItems(value[op], relatedModel as T, prefixedId, dmmf);
+            updatedValue[op] = processUpsertItems(
+              value[op],
+              relatedModel as T,
+              prefixedId,
+              dmmf,
+            );
           } else if (op === "connectOrCreate") {
-            updatedValue[op] = processConnectOrCreateItems(value[op], relatedModel as T, prefixedId, dmmf);
+            updatedValue[op] = processConnectOrCreateItems(
+              value[op],
+              relatedModel as T,
+              prefixedId,
+              dmmf,
+            );
           } else if (op === "create" || op === "createMany") {
             // Only process create operations with ID generation
             updatedValue[op] = processNestedData(

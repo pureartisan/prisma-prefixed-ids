@@ -222,4 +222,157 @@ describe('MySQL Integration Tests - Nested Create with Arrays', () => {
       expect(new Set(lineItemIds).size).toBe(3);
     });
   });
+
+  describe('Upsert Operations', () => {
+    it('should handle upsert with nested creates inside update branch', async () => {
+      if (!prisma) {
+        console.warn('Skipping test - DATABASE_URL not set');
+        return;
+      }
+
+      // First create an order
+      const order = await extendedPrisma.order.create({
+        data: {
+          orderNumber: `ORDER-UPSERT-UPDATE-${testRunId}`,
+          lineItems: {
+            create: {
+              quantity: 1,
+              price: 10.00,
+            },
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      const existingLineItemId = order.lineItems[0].id;
+
+      // Upsert the order - it exists, so the update branch runs
+      // The update branch creates a new line item
+      const upsertedOrder = await extendedPrisma.order.upsert({
+        where: { orderNumber: `ORDER-UPSERT-UPDATE-${testRunId}` },
+        create: {
+          orderNumber: `ORDER-UPSERT-UPDATE-${testRunId}`,
+        },
+        update: {
+          lineItems: {
+            create: {
+              quantity: 5,
+              price: 50.00,
+            },
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      expect(upsertedOrder.id).toBe(order.id);
+      expect(upsertedOrder.lineItems).toHaveLength(2);
+
+      const newLineItem = upsertedOrder.lineItems.find((item: any) => item.id !== existingLineItemId);
+      expect(newLineItem).toBeDefined();
+      expect(newLineItem!.id).toMatch(/^lin_/);
+      expect(newLineItem!.quantity).toBe(5);
+    });
+
+    it('should handle array upsert on nested relations', async () => {
+      if (!prisma) {
+        console.warn('Skipping test - DATABASE_URL not set');
+        return;
+      }
+
+      // Create an order with one line item
+      const order = await extendedPrisma.order.create({
+        data: {
+          orderNumber: `ORDER-ARRAY-UPSERT-${testRunId}`,
+          lineItems: {
+            create: {
+              quantity: 1,
+              price: 10.00,
+            },
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      const existingLineItemId = order.lineItems[0].id;
+
+      // Update with array upsert on line items
+      const updatedOrder = await extendedPrisma.order.update({
+        where: { id: order.id },
+        data: {
+          lineItems: {
+            upsert: [
+              {
+                where: { id: existingLineItemId },
+                create: { quantity: 99, price: 99.00 },
+                update: { quantity: 10 },
+              },
+              {
+                where: { id: 'lin_nonexistent' },
+                create: { quantity: 3, price: 30.00 },
+                update: { quantity: 99 },
+              },
+            ],
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      expect(updatedOrder.lineItems).toHaveLength(2);
+
+      const updated = updatedOrder.lineItems.find((item: any) => item.id === existingLineItemId);
+      expect(updated).toBeDefined();
+      expect(updated!.quantity).toBe(10);
+
+      const created = updatedOrder.lineItems.find((item: any) => item.id !== existingLineItemId);
+      expect(created).toBeDefined();
+      expect(created!.id).toMatch(/^lin_/);
+      expect(created!.quantity).toBe(3);
+    });
+  });
+
+  describe('ConnectOrCreate Operations', () => {
+    it('should handle single-object connectOrCreate on nested relations', async () => {
+      if (!prisma) {
+        console.warn('Skipping test - DATABASE_URL not set');
+        return;
+      }
+
+      // Create a line item first
+      const order1 = await extendedPrisma.order.create({
+        data: {
+          orderNumber: `ORDER-COC-SETUP-${testRunId}`,
+          lineItems: {
+            create: {
+              quantity: 1,
+              price: 10.00,
+            },
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      const existingLineItemId = order1.lineItems[0].id;
+
+      // Update another order using connectOrCreate as a single object
+      const order2 = await extendedPrisma.order.update({
+        where: { id: order1.id },
+        data: {
+          lineItems: {
+            connectOrCreate: {
+              where: { id: 'lin_nonexistent' },
+              create: { quantity: 7, price: 70.00 },
+            },
+          },
+        },
+        include: { lineItems: true },
+      });
+
+      expect(order2.lineItems).toHaveLength(2);
+
+      const newItem = order2.lineItems.find((item: any) => item.id !== existingLineItemId);
+      expect(newItem).toBeDefined();
+      expect(newItem!.id).toMatch(/^lin_/);
+      expect(newItem!.quantity).toBe(7);
+    });
+  });
 });

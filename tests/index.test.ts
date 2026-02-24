@@ -1345,6 +1345,9 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data.posts.upsert).toHaveLength(2);
       expect(result.data.posts.upsert[0].create.id).toMatch(/^pst_/);
       expect(result.data.posts.upsert[1].create.id).toMatch(/^pst_/);
+      // Update branches should NOT get IDs
+      expect(result.data.posts.upsert[0].update.id).toBeUndefined();
+      expect(result.data.posts.upsert[1].update.id).toBeUndefined();
     });
 
     it("should handle connectOrCreate operation with nested creates", async () => {

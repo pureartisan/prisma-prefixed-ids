@@ -398,6 +398,110 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
       expect(secondUpsert.id).toBe(upsertedUser.id);
       expect(secondUpsert.name).toBe('Actually Updated');
     });
+
+    it('should handle upsert with nested creates inside update branch', async () => {
+      // First create a user with a post
+      const user = await extendedPrisma.user.create({
+        data: {
+          name: 'Upsert Update User',
+          email: 'upsert-update@example.com',
+          posts: {
+            create: {
+              title: 'Existing Post',
+              content: 'Existing content',
+            },
+          },
+        },
+        include: { posts: true },
+      });
+
+      const existingPostId = user.posts[0].id;
+
+      // Now upsert with a nested create inside the update branch
+      const upsertedUser = await extendedPrisma.user.upsert({
+        where: { email: 'upsert-update@example.com' },
+        create: {
+          name: 'Should not be used',
+          email: 'upsert-update@example.com',
+        },
+        update: {
+          name: 'Updated Name',
+          posts: {
+            create: {
+              title: 'New Post From Update',
+              content: 'Created inside upsert update branch',
+            },
+          },
+        },
+        include: {
+          posts: true,
+        },
+      });
+
+      // Should have updated, not created
+      expect(upsertedUser.id).toBe(user.id);
+      expect(upsertedUser.name).toBe('Updated Name');
+      // Should have 2 posts now - the original and the new one
+      expect(upsertedUser.posts).toHaveLength(2);
+      const newPost = upsertedUser.posts.find((p: any) => p.id !== existingPostId);
+      expect(newPost).toBeDefined();
+      expect(newPost!.id).toMatch(/^pst_/);
+      expect(newPost!.title).toBe('New Post From Update');
+    });
+
+    it('should handle array upsert on nested relations', async () => {
+      // Create a user first
+      const user = await extendedPrisma.user.create({
+        data: {
+          name: 'Array Upsert User',
+          email: 'array-upsert@example.com',
+        },
+      });
+
+      // Create one existing post
+      const existingPost = await extendedPrisma.post.create({
+        data: {
+          title: 'Existing Post',
+          content: 'Existing content',
+          authorId: user.id,
+        },
+      });
+
+      // Update user with array upsert on posts
+      const updatedUser = await extendedPrisma.user.update({
+        where: { id: user.id },
+        data: {
+          posts: {
+            upsert: [
+              {
+                where: { id: existingPost.id },
+                create: { title: 'Should Not Create 1', content: 'x' },
+                update: { title: 'Updated Existing Post' },
+              },
+              {
+                where: { id: 'pst_nonexistent' },
+                create: { title: 'Newly Created Post', content: 'new' },
+                update: { title: 'Should Not Update' },
+              },
+            ],
+          },
+        },
+        include: {
+          posts: true,
+        },
+      });
+
+      expect(updatedUser.posts).toHaveLength(2);
+
+      const updated = updatedUser.posts.find((p: any) => p.id === existingPost.id);
+      expect(updated).toBeDefined();
+      expect(updated!.title).toBe('Updated Existing Post');
+
+      const created = updatedUser.posts.find((p: any) => p.id !== existingPost.id);
+      expect(created).toBeDefined();
+      expect(created!.id).toMatch(/^pst_/);
+      expect(created!.title).toBe('Newly Created Post');
+    });
   });
 
   describe('ConnectOrCreate Operations', () => {
@@ -461,6 +565,42 @@ describe('Integration Tests - Prisma Prefixed IDs', () => {
       // Verify total categories in database
       const totalCategories = await prisma.category.count();
       expect(totalCategories).toBe(2); // Should not have created a duplicate
+    });
+
+    it('should handle single-object connectOrCreate on nested relations', async () => {
+      const user = await extendedPrisma.user.create({
+        data: {
+          name: 'Single ConnectOrCreate User',
+          email: 'single-connectorcreate@example.com',
+          posts: {
+            create: {
+              title: 'Post with single ConnectOrCreate',
+              content: 'Testing single connectOrCreate',
+              categories: {
+                connectOrCreate: {
+                  where: { name: 'Brand New Category' },
+                  create: { name: 'Brand New Category' },
+                },
+              },
+            },
+          },
+        },
+        include: {
+          posts: {
+            include: {
+              categories: true,
+            },
+          },
+        },
+      });
+
+      expect(user.id).toMatch(/^usr_/);
+
+      const post = user.posts[0];
+      expect(post.id).toMatch(/^pst_/);
+      expect(post.categories).toHaveLength(1);
+      expect(post.categories[0].id).toMatch(/^cat_/);
+      expect(post.categories[0].name).toBe('Brand New Category');
     });
   });
 

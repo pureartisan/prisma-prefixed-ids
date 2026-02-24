@@ -136,49 +136,28 @@ export const processNestedData = <T extends ModelName>(
               };
             } else if (key === "upsert") {
               // Handle upsert operation (has create and update)
-              if (Array.isArray(value)) {
-                result[key] = value.map((item: any) => ({
-                  ...item,
-                  create: item.create
-                    ? processNestedData(
-                        item.create,
-                        relatedModel as T,
-                        prefixedId,
-                        dmmf,
-                      )
-                    : item.create,
-                  update: item.update
-                    ? processNestedData(
-                        item.update,
-                        relatedModel as T,
-                        prefixedId,
-                        dmmf,
-                        false,
-                      )
-                    : item.update,
-                }));
-              } else {
-                result[key] = {
-                  ...value,
-                  create: value.create
-                    ? processNestedData(
-                        value.create,
-                        relatedModel as T,
-                        prefixedId,
-                        dmmf,
-                      )
-                    : value.create,
-                  update: value.update
-                    ? processNestedData(
-                        value.update,
-                        relatedModel as T,
-                        prefixedId,
-                        dmmf,
-                        false,
-                      )
-                    : value.update,
-                };
-              }
+              const upsertItems = Array.isArray(value) ? value : [value];
+              const processedUpserts = upsertItems.map((item: any) => ({
+                ...item,
+                create: item.create
+                  ? processNestedData(
+                      item.create,
+                      relatedModel as T,
+                      prefixedId,
+                      dmmf,
+                    )
+                  : item.create,
+                update: item.update
+                  ? processNestedData(
+                      item.update,
+                      relatedModel as T,
+                      prefixedId,
+                      dmmf,
+                      false,
+                    )
+                  : item.update,
+              }));
+              result[key] = Array.isArray(value) ? processedUpserts : processedUpserts[0];
             } else if (key === "connectOrCreate") {
               // Handle connectOrCreate operation
               result[key] = {
@@ -231,49 +210,28 @@ export const processNestedData = <T extends ModelName>(
               ),
             };
           } else if (op === "upsert") {
-            if (Array.isArray(value[op])) {
-              updatedValue[op] = value[op].map((item: any) => ({
-                ...item,
-                create: item.create
-                  ? processNestedData(
-                      item.create,
-                      relatedModel as T,
-                      prefixedId,
-                      dmmf,
-                    )
-                  : item.create,
-                update: item.update
-                  ? processNestedData(
-                      item.update,
-                      relatedModel as T,
-                      prefixedId,
-                      dmmf,
-                      false,
-                    )
-                  : item.update,
-              }));
-            } else {
-              updatedValue[op] = {
-                ...value[op],
-                create: value[op].create
-                  ? processNestedData(
-                      value[op].create,
-                      relatedModel as T,
-                      prefixedId,
-                      dmmf,
-                    )
-                  : value[op].create,
-                update: value[op].update
-                  ? processNestedData(
-                      value[op].update,
-                      relatedModel as T,
-                      prefixedId,
-                      dmmf,
-                      false,
-                    )
-                  : value[op].update,
-              };
-            }
+            const upsertItems = Array.isArray(value[op]) ? value[op] : [value[op]];
+            const processedUpserts = upsertItems.map((item: any) => ({
+              ...item,
+              create: item.create
+                ? processNestedData(
+                    item.create,
+                    relatedModel as T,
+                    prefixedId,
+                    dmmf,
+                  )
+                : item.create,
+              update: item.update
+                ? processNestedData(
+                    item.update,
+                    relatedModel as T,
+                    prefixedId,
+                    dmmf,
+                    false,
+                  )
+                : item.update,
+            }));
+            updatedValue[op] = Array.isArray(value[op]) ? processedUpserts : processedUpserts[0];
           } else if (op === "connectOrCreate") {
             // Special handling for connectOrCreate - it's an array where each item has where/create
             if (Array.isArray(value[op])) {

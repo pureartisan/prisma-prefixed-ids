@@ -272,6 +272,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
     $allModels: {
       create: (args: QueryArgs) => Promise<any>;
       createMany: (args: QueryArgs) => Promise<any>;
+      createManyAndReturn: (args: QueryArgs) => Promise<any>;
       update: (args: QueryArgs) => Promise<any>;
       updateMany: (args: QueryArgs) => Promise<any>;
       upsert: (args: QueryArgs) => Promise<any>;
@@ -351,7 +352,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
           );
         }
       } else if (args.data) {
-        if (operation === "createMany") {
+        if (operation === "createMany" || operation === "createManyAndReturn") {
           // For createMany, data is an array
           if (Array.isArray(args.data)) {
             args.data = args.data.map((item: any) => {
@@ -405,6 +406,7 @@ export function createPrefixedIdsExtension<ModelName extends string>(
       $allModels: {
         create: createOperationHandler("create"),
         createMany: createOperationHandler("createMany"),
+        createManyAndReturn: createOperationHandler("createManyAndReturn"),
         update: createOperationHandler("update"),
         updateMany: createOperationHandler("updateMany"),
         upsert: createOperationHandler("upsert"),

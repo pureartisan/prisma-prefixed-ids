@@ -189,6 +189,22 @@ describe("PrefixedIdsExtension", () => {
       expect(result.data[1]).toHaveProperty("id");
     });
 
+    it("should handle createManyAndReturn operation", async () => {
+      const extension = createPrefixedIdsExtension(
+        { prefixes: { Test: "test" } },
+        mockDMMF,
+      );
+
+      const result = await extension.query.$allModels.createManyAndReturn({
+        args: { data: [{}, { id: "manual" }] },
+        query: mockQuery,
+        model: "Test",
+      });
+
+      expect(result.data[0].id).toMatch(/^test_/);
+      expect(result.data[1].id).toBe("manual");
+    });
+
     it("should use DMMF to handle nested relations", async () => {
       const extension = createPrefixedIdsExtension(
         {

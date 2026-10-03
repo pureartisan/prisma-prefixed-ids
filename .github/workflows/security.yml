@@ -1,0 +1,37 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly audit, Mondays 8 AM UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: "npm"
+      # Lifecycle scripts are skipped: auditing doesn't need them and it avoids
+      # executing dependency code in CI
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      # Gate on what users actually install: runtime dependencies only
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --omit=peer --omit=optional --audit-level=moderate
+      # Dev tooling (Prisma CLI etc.) is reported but doesn't fail the build
+      - name: Audit full dependency tree (informational)
+        run: npm audit --audit-level=high
+        continue-on-error: true

@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@libsql/client": "^0.17.0",
-    "@prisma/adapter-libsql": "^7.3.0",
+    "@prisma/adapter-libsql": "^7.10.0",
     "@prisma/adapter-mariadb": "^7.3.0",
     "@prisma/adapter-pg": "^7.3.0",
     "@types/jest": "^30.0.0",

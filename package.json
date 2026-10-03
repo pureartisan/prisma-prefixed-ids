@@ -1,6 +1,6 @@
 {
   "name": "prisma-prefixed-ids",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Stripe-style prefixed IDs (usr_abc123) for Prisma models, as a Prisma Client extension with nested write support",
   "type": "module",
   "main": "./dist/index.js",

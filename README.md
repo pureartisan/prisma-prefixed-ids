@@ -279,6 +279,7 @@ The extension supports all Prisma nested write operations:
 
 - ✅ **`create`** - Single nested record creation
 - ✅ **`createMany`** - Multiple nested records creation  
+- ✅ **`createManyAndReturn`** - Top-level bulk create that returns the created records
 - ✅ **`connectOrCreate`** - Connect existing or create new records
 - ✅ **`upsert`** - Update existing or create new records
 - ✅ **Deeply nested structures** - Multiple levels of relationships

@@ -44,7 +44,7 @@ This package handles those and is covered by unit tests plus integration tests a
 | Custom ID generator | ✅ | You build it | ❌ |
 | Extra code to maintain | None | Yours | None |
 
-Use this package when you want self-describing IDs like `usr_…` and `org_…`, as in Stripe or Linear APIs, without maintaining the extension yourself.
+Use this package when you want self-describing IDs like `usr_…` and `org_…`, as in Stripe's API, without maintaining the extension yourself.
 
 ### Need sortable IDs?
 

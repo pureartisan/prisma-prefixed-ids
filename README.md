@@ -37,13 +37,14 @@ This package handles those and is covered by unit tests plus integration tests a
 
 ### How does it compare?
 
-| | prisma-prefixed-ids | [prisma-ksuid](https://github.com/owpz/prisma-ksuid) | Hand-rolled extension |
+| | prisma-prefixed-ids | Hand-rolled extension | `@default(uuid())` / `cuid()` |
 |---|---|---|---|
-| Readable per-model prefix (`usr_…`) | ✅ | ✅ | You build it |
-| Default ID | nanoid (random) | KSUID (time-sortable) | Your choice |
-| Nested writes / upsert / connectOrCreate | ✅ | ✅ | Easy to miss |
+| Readable per-model prefix (`usr_…`) | ✅ | You build it | ❌ |
+| Nested writes / upsert / connectOrCreate | ✅ | Easy to miss | ✅ (DB/engine default) |
+| Custom ID generator | ✅ | You build it | ❌ |
+| Extra code to maintain | None | Yours | None |
 
-Pick this package if you want compact random IDs and a custom generator option. Pick prisma-ksuid if you want time-ordered keys out of the box.
+Use this package when you want self-describing IDs like `usr_…` and `org_…`, as in Stripe or Linear APIs, without maintaining the extension yourself.
 
 ### Need sortable IDs?
 

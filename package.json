@@ -47,8 +47,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset --force",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "git:push": "git push && git push --tags",
@@ -72,6 +72,7 @@
     "nanoid": "^5.1.16"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@libsql/client": "^0.17.0",
     "@prisma/adapter-libsql": "^7.10.0",
     "@prisma/adapter-mariadb": "^7.3.0",
@@ -82,13 +83,15 @@
     "@typescript-eslint/eslint-plugin": "^8.71.0",
     "@typescript-eslint/parser": "^8.71.0",
     "dotenv": "^18.0.5",
-    "eslint": "^8.56.0",
+    "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
     "jest": "^30.5.2",
     "prettier": "^3.0.0",
     "prisma": "^7.0.0",
     "ts-jest": "^29.4.14",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.71.0"
   },
   "peerDependencies": {
     "@prisma/client": "^6.0.0 || ^7.0.0"

@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@libsql/client": "^0.17.0",
+    "@libsql/client": "^0.18.0",
     "@prisma/adapter-libsql": "^7.10.0",
     "@prisma/adapter-mariadb": "^7.3.0",
     "@prisma/adapter-pg": "^7.10.0",

@@ -216,7 +216,7 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Merge minor and patch updates
+    - name: Merge updates that contain no major bumps
       if: steps.metadata.outputs.dependency-names != '' && !contains(fromJSON(steps.metadata.outputs.updated-dependencies-json).*.updateType, 'version-update:semver-major')
       run: gh pr merge --squash --delete-branch "$PR_URL"
       env:

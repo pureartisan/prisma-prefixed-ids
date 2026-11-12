@@ -1,0 +1,83 @@
+name: Auto release
+
+# Once a day, cuts one patch release if Dependabot updates to runtime dependencies were merged
+# since the last release, so a day of updates is a single version. Can also be run by hand
+# (Actions tab, or: gh workflow run auto-release.yml).
+#
+# The daily schedule is off by default: it only runs when the repository variable AUTO_RELEASE is "true".
+#   gh variable set AUTO_RELEASE --body true     # on
+#   gh variable delete AUTO_RELEASE              # off
+# A manual run always goes ahead, whatever the variable says.
+#
+# This only bumps the version and pushes the tag. Release.yml then stages the package on npm,
+# and a maintainer still approves it there with 2FA (see docs/RELEASING.md).
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Release even when no runtime dependency update was merged since the last release
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # push the version bump and the tag
+  actions: write    # start release.yml (a tag pushed with GITHUB_TOKEN does not trigger it)
+
+concurrency:
+  group: auto-release
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.AUTO_RELEASE == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0   # the release check reads the history back to the last tag
+
+      # Dependabot titles runtime updates "chore(deps): ..." (see .github/dependabot.yml). Dev
+      # dependency ("chore(deps-dev):") and GitHub Actions ("ci:") updates do not change the package.
+      - name: Look for runtime dependency updates since the last release
+        id: check
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          last="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+          range="${last:+$last..}HEAD"
+          updates="$(git log --format='%s' "$range" | grep -E '^chore\(deps\):' || true)"
+          {
+            echo "Last release: ${last:-none}"
+            echo
+            echo "Runtime dependency updates since then:"
+            echo "${updates:-none}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$updates" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE" = true ] && [ "$(git rev-list --count "$range")" -gt 0 ]; then
+            echo "Forced release." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Nothing to release."
+          fi
+
+      - name: Bump the patch version and tag it
+        id: bump
+        if: steps.check.outputs.release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          version="$(npm version patch --no-git-tag-version)"
+          git commit -am "chore: release ${version#v}"
+          git tag "$version"
+          git push origin HEAD:main "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Start the release workflow on the new tag
+        if: steps.check.outputs.release == 'true'
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.bump.outputs.version }}

@@ -1,0 +1,45 @@
+name: Release
+
+# Stages a release on npm when a version tag is pushed (see docs/RELEASING.md):
+#   bump the version in a PR, merge it, then
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+# auto-release.yml starts it with workflow_dispatch on the tag it just pushed, because a tag
+# pushed with the default GITHUB_TOKEN does not trigger a push event.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the GitHub release
+  id-token: write   # npm trusted publishing (OIDC) and provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Update npm (staged publishing needs npm 11.15.0 or newer)
+        run: npm install -g npm@11
+      - run: npm ci
+      - name: Tag must match package.json version
+        run: |
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $pkg" >&2
+            exit 1
+          fi
+      - run: npm test
+      # Authenticates with npm through OIDC (trusted publisher for release.yml), so no token is stored.
+      # The version is only staged: a maintainer approves it (with 2FA) on npmjs.com or with
+      # `npm stage approve <stage-id>` before it goes live.
+      - run: npm stage publish --provenance --access public
+      - name: GitHub release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

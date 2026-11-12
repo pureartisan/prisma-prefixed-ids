@@ -1,10 +1,28 @@
 version: 2
 updates:
+  # Minor and patch bumps are grouped so a week of updates is one PR, and so at most one
+  # release. Runtime and dev dependencies are split: only runtime ones change what ships on
+  # npm (see .github/workflows/auto-release.yml). Major bumps stay as separate PRs.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      runtime-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        update-types: [minor, patch]

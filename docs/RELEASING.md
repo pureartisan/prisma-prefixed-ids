@@ -57,7 +57,8 @@ Version numbers on npm can never be reused. If a published version is bad, ship 
 
 ## Dependency updates and automatic releases
 
-[`.github/dependabot.yml`](../.github/dependabot.yml) opens a weekly PR for npm dependencies and one for GitHub Actions. Minor and patch bumps are grouped, and runtime dependencies are kept apart from dev dependencies. Major bumps stay as separate PRs for a person to review. Merging them is manual.
+[`.github/dependabot.yml`](../.github/dependabot.yml) opens a weekly PR for npm dependencies and one for GitHub Actions. Minor and patch bumps are grouped, and runtime dependencies are kept apart from dev dependencies. 
+The `automerge-dependabot` job in [`ci.yml`](../.github/workflows/ci.yml) squash-merges a Dependabot PR once every test job has passed, unless it contains a **major** bump. Major bumps stay open for a person to review.
 
 ### Daily auto release (schedule off by default)
 
